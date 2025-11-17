@@ -5,11 +5,10 @@ It initializes the Flask application, sets up all services, registers blueprints
 and starts the trading loop.
 """
 
-from flask import Flask, render_template
+from flask import Flask
 from flask_cors import CORS
 import threading
 import time
-import webbrowser
 from datetime import datetime
 
 from backend.config.settings import Config
@@ -78,11 +77,6 @@ def create_app(config: Config = None) -> Flask:
     app.register_blueprint(trades_bp)
     app.register_blueprint(market_bp)
     app.register_blueprint(system_bp)
-    
-    # Register index route
-    @app.route('/')
-    def index():
-        return render_template('index.html')
     
     return app
 
@@ -192,20 +186,6 @@ if __name__ == '__main__':
     print(f"Server: http://{config.HOST}:{config.PORT}")
     print("Press Ctrl+C to stop")
     print("=" * 60 + "\n")
-    
-    # Auto-open browser
-    def open_browser():
-        time.sleep(1.5)  # Wait for server to start
-        url = f"http://localhost:{config.PORT}"
-        try:
-            webbrowser.open(url)
-            print(f"[INFO] Browser opened: {url}")
-        except Exception as e:
-            print(f"[WARN] Could not open browser: {e}")
-    
-    browser_thread = threading.Thread(target=open_browser, daemon=True)
-    browser_thread.start()
-    
     # Start Flask application
     app.run(
         debug=config.DEBUG,

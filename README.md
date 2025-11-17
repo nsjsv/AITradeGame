@@ -20,11 +20,16 @@ Includes a Windows one-click standalone executable that runs without installatio
 
 AI-driven trading strategies based on large language models, compatible with OpenAI, DeepSeek, Claude, and other models. Leveraged portfolio management with ECharts visualizations. 100% privacy with all data stored in local database. Trading fee configuration supported to simulate real trading environment.
 
+**Modern Frontend (Migrated):**
+The application now features a modern Next.js 15 + React 19 frontend with TypeScript, Tailwind CSS 4, and Shadcn UI components. The new frontend provides enhanced user experience with responsive design, dark mode support, and improved performance.
+
 **Latest Features:**
 - API Provider Management: Unified management of multiple AI service provider API configurations
 - Smart Model Selection: Automatically fetch available model lists for each provider
 - Aggregated View: View aggregated assets and performance comparison across all models
 - System Settings: Configurable trading frequency and fee rates
+- Responsive Design: Full mobile and tablet support
+- Dark Mode: System-aware theme switching
 
 ### Online Version (Public)
 
@@ -73,7 +78,7 @@ The project follows a modular architecture with clear separation of concerns:
 
 ```
 project/
-├── main.py                      # Application entry point
+├── main.py                      # Backend entry point
 ├── backend/
 │   ├── core/                    # Core trading logic (engine, AI trader)
 │   ├── data/                    # Data layer (database, market data)
@@ -82,8 +87,12 @@ project/
 │   ├── services/                # Business services (trading, portfolio, market)
 │   ├── utils/                   # Utility functions (formatters, validators, version)
 │   └── config/                  # Configuration (settings, constants)
-├── static/                      # Frontend static files
-├── templates/                   # Frontend templates
+├── frontend/                    # Next.js 15 + React 19 frontend
+│   ├── app/                     # Next.js App Router pages
+│   ├── components/              # React components (UI + features)
+│   ├── hooks/                   # Custom React hooks
+│   ├── lib/                     # Utilities and API client
+│   └── store/                   # Zustand state management
 └── requirements.txt             # Python dependencies
 ```
 
@@ -135,7 +144,24 @@ Supports all OpenAI-compatible APIs. This includes OpenAI models like gpt-4 and 
 
 ## Usage
 
-Start the server by running AITradeGame.exe or python main.py. Add AI model configuration through the web interface at http://localhost:5000. The system automatically begins trading simulation based on your configuration. Trading fees are charged for each open and close position according to the set rate, ensuring AI strategies operate under realistic cost conditions.
+### Desktop Version (Standalone Executable)
+Run AITradeGame.exe and the interface will open automatically at http://localhost:5000.
+
+### Development Mode
+1. Start the backend server:
+```bash
+python main.py
+```
+The backend API will be available at http://localhost:5000
+
+2. Start the frontend development server:
+```bash
+cd frontend
+pnpm dev
+```
+The frontend will be available at http://localhost:3000
+
+Add AI model configuration through the web interface. The system automatically begins trading simulation based on your configuration. Trading fees are charged for each open and close position according to the set rate, ensuring AI strategies operate under realistic cost conditions.
 
 ## Privacy and Security
 
@@ -143,9 +169,89 @@ All data is stored in the AITradeGame.db SQLite file in the same directory as th
 
 ## Development
 
+### Backend Development
+
 Development requires Python 3.9 or later. Internet connection is needed for market data and AI API calls.
 
-Install all dependencies with: pip install -r requirements.txt
+Install all dependencies with:
+```bash
+pip install -r requirements.txt
+```
+
+Start the backend server:
+```bash
+python main.py
+```
+
+The backend API will be available at http://localhost:5000
+
+### Frontend Development
+
+The frontend is built with Next.js 15, React 19, TypeScript, Tailwind CSS 4, and Shadcn UI.
+
+**Prerequisites:**
+- Node.js 18+ 
+- pnpm (recommended) or npm
+
+**Setup:**
+
+1. Navigate to the frontend directory:
+```bash
+cd frontend
+```
+
+2. Install dependencies:
+```bash
+pnpm install
+# or
+npm install
+```
+
+3. Configure environment variables:
+```bash
+cp .env.example .env.local
+```
+
+Edit `.env.local` and set the API URL:
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:5000
+```
+
+4. Start the development server:
+```bash
+pnpm dev
+# or
+npm run dev
+```
+
+The frontend will be available at http://localhost:3000
+
+**Build for production:**
+```bash
+pnpm build
+pnpm start
+```
+
+**Frontend Structure:**
+```
+frontend/
+├── app/                    # Next.js App Router pages
+├── components/
+│   ├── ui/                # Shadcn UI base components
+│   └── features/          # Business components
+├── hooks/                 # Custom React hooks
+├── lib/                   # Utilities and API client
+└── store/                 # Zustand state management
+```
+
+**Key Technologies:**
+- Next.js 15 with App Router
+- React 19 with Server Components
+- TypeScript for type safety
+- Tailwind CSS 4 for styling
+- Shadcn UI for component library
+- Zustand for state management
+- ECharts for data visualization
 
 ## Contributing
 

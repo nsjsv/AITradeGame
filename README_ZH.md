@@ -20,11 +20,16 @@ AITradeGame 是支持本地和在线双版本的AI 交易模拟平台。
 
 基于大语言模型的 AI 驱动交易策略，兼容 OpenAI、DeepSeek、Claude 等模型。支持杠杆投资组合管理，使用 ECharts 可视化。100% 隐私，所有数据存储在本地数据库中。支持交易费用配置，模拟真实交易环境。
 
+**现代化前端（已迁移）：**
+应用程序现已采用现代化的 Next.js 15 + React 19 前端，配合 TypeScript、Tailwind CSS 4 和 Shadcn UI 组件库。新前端提供了增强的用户体验，包括响应式设计、暗黑模式支持和改进的性能。
+
 **新增功能：**
 - API提供方管理：统一管理多个 AI 服务提供方的 API 配置
 - 智能模型选择：为每个提供方自动获取可用模型列表
 - 聚合视图：查看所有模型的汇总资产和表现对比
 - 系统设置：可配置交易频率和交易费率
+- 响应式设计：完整支持移动端和平板设备
+- 暗黑模式：系统感知的主题切换
 
 ### 在线版（公开部署）
 
@@ -95,7 +100,24 @@ docker run -d -p 5000:5000 -v $(pwd)/data:/app/data aitradegame
 
 ## 使用方法
 
-通过运行 AITradeGame.exe 或 python app.py 启动服务器。通过 http://localhost:5000 的 Web 界面添加 AI 模型配置。系统根据您的配置自动开始交易模拟。每次开仓和平仓都会按设定的费率收取交易费用，确保AI策略在真实成本环境下运行。
+### 桌面版（独立可执行文件）
+运行 AITradeGame.exe，界面将自动在 http://localhost:5000 打开。
+
+### 开发模式
+1. 启动后端服务器：
+```bash
+python main.py
+```
+后端 API 将在 http://localhost:5000 可用
+
+2. 启动前端开发服务器：
+```bash
+cd frontend
+pnpm dev
+```
+前端将在 http://localhost:3000 可用
+
+通过 Web 界面添加 AI 模型配置。系统根据您的配置自动开始交易模拟。每次开仓和平仓都会按设定的费率收取交易费用，确保AI策略在真实成本环境下运行。
 
 ## 隐私与安全
 
@@ -103,9 +125,89 @@ docker run -d -p 5000:5000 -v $(pwd)/data:/app/data aitradegame
 
 ## 开发
 
+### 后端开发
+
 开发需要 Python 3.9 或更高版本。需要互联网连接以获取市场数据和 AI API 调用。
 
-安装所有依赖项：pip install -r requirements.txt
+安装所有依赖项：
+```bash
+pip install -r requirements.txt
+```
+
+启动后端服务器：
+```bash
+python main.py
+```
+
+后端 API 将在 http://localhost:5000 可用
+
+### 前端开发
+
+前端使用 Next.js 15、React 19、TypeScript、Tailwind CSS 4 和 Shadcn UI 构建。
+
+**前置要求：**
+- Node.js 18+ 
+- pnpm（推荐）或 npm
+
+**设置：**
+
+1. 进入前端目录：
+```bash
+cd frontend
+```
+
+2. 安装依赖：
+```bash
+pnpm install
+# 或
+npm install
+```
+
+3. 配置环境变量：
+```bash
+cp .env.example .env.local
+```
+
+编辑 `.env.local` 并设置 API 地址：
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:5000
+```
+
+4. 启动开发服务器：
+```bash
+pnpm dev
+# 或
+npm run dev
+```
+
+前端将在 http://localhost:3000 可用
+
+**生产构建：**
+```bash
+pnpm build
+pnpm start
+```
+
+**前端结构：**
+```
+frontend/
+├── app/                    # Next.js App Router 页面
+├── components/
+│   ├── ui/                # Shadcn UI 基础组件
+│   └── features/          # 业务组件
+├── hooks/                 # 自定义 React hooks
+├── lib/                   # 工具库和 API 客户端
+└── store/                 # Zustand 状态管理
+```
+
+**核心技术：**
+- Next.js 15 with App Router
+- React 19 with Server Components
+- TypeScript 类型安全
+- Tailwind CSS 4 样式框架
+- Shadcn UI 组件库
+- Zustand 状态管理
+- ECharts 数据可视化
 
 ## 贡献
 

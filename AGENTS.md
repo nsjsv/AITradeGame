@@ -13,6 +13,8 @@
 
 ## 项目结构
 
+**注意：** 项目已完成前端迁移，旧的 `static/` 和 `templates/` 目录已被移除。现在使用现代化的 Next.js 15 + React 19 前端架构。
+
 ```
 project/
 ├── main.py                # 后端启动入口
@@ -26,7 +28,7 @@ project/
 │   ├── utils/             # 工具函数
 │   ├── config/            # 后端配置
 │   └── tests/             # 后端测试
-├── frontend/
+├── frontend/              # 现代化前端（Next.js 15 + React 19）
 │   ├── app/               # Next.js App Router
 │   │   ├── (routes)/      # 路由组
 │   │   ├── api/           # API Routes
