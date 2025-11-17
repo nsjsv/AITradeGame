@@ -57,6 +57,7 @@ venv.bak/
 *.swo
 *~
 .DS_Store
+.kiro/
 
 # Database files
 *.db

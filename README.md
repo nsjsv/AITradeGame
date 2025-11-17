@@ -40,7 +40,7 @@ Launch the online version at https://aitradegame.com without any installation.
 
 Download AITradeGame.exe from GitHub releases. Double-click the executable to run. The interface will open automatically. Start adding AI models and begin trading.
 
-Alternatively, clone the repository from GitHub. Install dependencies with pip install -r requirements.txt. Run the application with python app.py and visit http://localhost:5000.
+Alternatively, clone the repository from GitHub. Install dependencies with pip install -r requirements.txt. Run the application with python main.py and visit http://localhost:5000.
 
 ### Docker Deployment
 
@@ -67,7 +67,47 @@ docker run -d -p 5000:5000 -v $(pwd)/data:/app/data aitradegame
 
 The data directory will be created automatically to store the SQLite database. To stop the container, run `docker-compose down`.
 
+## Project Structure
+
+The project follows a modular architecture with clear separation of concerns:
+
+```
+project/
+├── main.py                      # Application entry point
+├── backend/
+│   ├── core/                    # Core trading logic (engine, AI trader)
+│   ├── data/                    # Data layer (database, market data)
+│   ├── api/                     # API routes (providers, models, trades, market, system)
+│   ├── models/                  # Data models (provider, trading_model, portfolio, trade)
+│   ├── services/                # Business services (trading, portfolio, market)
+│   ├── utils/                   # Utility functions (formatters, validators, version)
+│   └── config/                  # Configuration (settings, constants)
+├── static/                      # Frontend static files
+├── templates/                   # Frontend templates
+└── requirements.txt             # Python dependencies
+```
+
 ## Configuration
+
+### Environment Variables
+
+Copy `.env.example` to `.env` and configure your settings:
+
+```bash
+cp .env.example .env
+```
+
+Key configuration options:
+- `DEBUG`: Enable debug mode (default: False)
+- `HOST`: Server host (default: 0.0.0.0)
+- `PORT`: Server port (default: 5000)
+- `DATABASE_TYPE`: Database type - sqlite or postgresql (default: sqlite)
+- `SQLITE_PATH`: SQLite database file path (default: AITradeGame.db)
+- `POSTGRES_URI`: PostgreSQL connection URI (for future migration)
+- `TRADE_FEE_RATE`: Trading fee rate (default: 0.001 = 0.1%)
+- `TRADING_FREQUENCY`: Trading frequency in minutes (default: 180)
+- `AUTO_TRADING`: Enable automatic trading (default: True)
+- `LOG_LEVEL`: Logging level (default: INFO)
 
 ### API Provider Setup
 First, add AI service providers:
@@ -95,7 +135,7 @@ Supports all OpenAI-compatible APIs. This includes OpenAI models like gpt-4 and 
 
 ## Usage
 
-Start the server by running AITradeGame.exe or python app.py. Add AI model configuration through the web interface at http://localhost:5000. The system automatically begins trading simulation based on your configuration. Trading fees are charged for each open and close position according to the set rate, ensuring AI strategies operate under realistic cost conditions.
+Start the server by running AITradeGame.exe or python main.py. Add AI model configuration through the web interface at http://localhost:5000. The system automatically begins trading simulation based on your configuration. Trading fees are charged for each open and close position according to the set rate, ensuring AI strategies operate under realistic cost conditions.
 
 ## Privacy and Security
 

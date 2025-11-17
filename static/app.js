@@ -8,6 +8,11 @@ class TradingApp {
             portfolio: null,
             trades: null
         };
+        this.config = {
+            marketRefreshInterval: 5000,
+            portfolioRefreshInterval: 10000,
+            tradingCoins: []
+        };
         this.isChinese = this.detectLanguage();
         this.init();
     }
@@ -59,7 +64,8 @@ class TradingApp {
         return '';
     }
 
-    init() {
+    async init() {
+        await this.loadConfig();
         this.initEventListeners();
         this.loadModels();
         this.loadMarketPrices();
@@ -908,10 +914,23 @@ class TradingApp {
         ]);
     }
 
+    async loadConfig() {
+        try {
+            const response = await fetch('/api/config');
+            const config = await response.json();
+            this.config.marketRefreshInterval = config.market_refresh_interval || 5000;
+            this.config.portfolioRefreshInterval = config.portfolio_refresh_interval || 10000;
+            this.config.tradingCoins = config.trading_coins || [];
+            console.log('[CONFIG] Loaded:', this.config);
+        } catch (error) {
+            console.error('Failed to load config, using defaults:', error);
+        }
+    }
+
     startRefreshCycles() {
         this.refreshIntervals.market = setInterval(() => {
             this.loadMarketPrices();
-        }, 5000);
+        }, this.config.marketRefreshInterval);
 
         this.refreshIntervals.portfolio = setInterval(() => {
             if (this.isAggregatedView || this.currentModelId) {
@@ -921,7 +940,7 @@ class TradingApp {
                     this.loadModelData();
                 }
             }
-        }, 10000);
+        }, this.config.portfolioRefreshInterval);
     }
 
     stopRefreshCycles() {
