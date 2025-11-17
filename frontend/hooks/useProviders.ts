@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { apiClient } from '@/lib/api'
+import { useAppStore } from '@/store/useAppStore'
 import type { ApiProvider, CreateProviderRequest, FetchModelsRequest } from '@/lib/types'
 
 interface UseProvidersReturn {
@@ -19,7 +20,8 @@ interface UseProvidersReturn {
 }
 
 export function useProviders(): UseProvidersReturn {
-  const [providers, setProviders] = useState<ApiProvider[]>([])
+  const providers = useAppStore((state) => state.providers)
+  const setProviders = useAppStore((state) => state.setProviders)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -43,7 +45,7 @@ export function useProviders(): UseProvidersReturn {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [setProviders])
 
   /**
    * 创建新提供方

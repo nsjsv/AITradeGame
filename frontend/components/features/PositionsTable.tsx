@@ -7,9 +7,7 @@
  * 在聚合视图中隐藏
  */
 
-import React from 'react'
-import { usePortfolio } from '@/hooks'
-import { useAppStore } from '@/store/useAppStore'
+import React, { useMemo } from 'react'
 import {
   Table,
   TableBody,
@@ -24,19 +22,24 @@ import {
   formatQuantity,
   getPnlColorClass,
 } from '@/lib/utils'
-import type { Position } from '@/lib/types'
+import type { Portfolio, Position } from '@/lib/types'
 
-export const PositionsTable = React.memo(function PositionsTable() {
-  const { portfolio, isLoading } = usePortfolio()
-  const { isAggregatedView } = useAppStore()
+interface PositionsTableProps {
+  portfolio: Portfolio | null
+  isLoading?: boolean
+}
 
-  // 聚合视图中隐藏
-  if (isAggregatedView) {
-    return null
-  }
+export const PositionsTable = React.memo(function PositionsTable({
+  portfolio,
+  isLoading,
+}: PositionsTableProps) {
+  const positions = useMemo(
+    () => portfolio?.positions ?? [],
+    [portfolio?.positions]
+  )
 
   // 空状态
-  if (!isLoading && (!portfolio || !portfolio.positions || portfolio.positions.length === 0)) {
+  if (!isLoading && positions.length === 0) {
     return (
       <Card>
         <CardHeader>
@@ -66,8 +69,6 @@ export const PositionsTable = React.memo(function PositionsTable() {
       </Card>
     )
   }
-
-  const positions = portfolio?.positions || []
 
   return (
     <Card>

@@ -10,7 +10,7 @@
 
 'use client'
 
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTheme } from 'next-themes'
 import { 
   RefreshCw, 
@@ -46,6 +46,11 @@ export const Header = React.memo(function Header({
   const { updateInfo } = useUpdate()
   const { theme, setTheme } = useTheme()
   const [isRunning] = useState(true) // TODO: 从 API 获取实际运行状态
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const hasUpdate = useMemo(
     () => updateInfo?.update_available && !updateInfo.error,
@@ -53,8 +58,11 @@ export const Header = React.memo(function Header({
   )
 
   const toggleTheme = useCallback(() => {
+    if (!mounted) {
+      return
+    }
     setTheme(theme === 'dark' ? 'light' : 'dark')
-  }, [theme, setTheme])
+  }, [theme, setTheme, mounted])
 
   const handleRefresh = useCallback(() => {
     if (onRefresh && !isRefreshing) {
@@ -170,13 +178,30 @@ export const Header = React.memo(function Header({
             variant="ghost"
             size="icon-sm"
             onClick={toggleTheme}
-            aria-label={theme === 'dark' ? '切换到浅色模式' : '切换到暗黑模式'}
-            title={theme === 'dark' ? '切换到浅色模式' : '切换到暗黑模式'}
+            aria-label={
+              mounted
+                ? theme === 'dark'
+                  ? '切换到浅色模式'
+                  : '切换到暗黑模式'
+                : '切换主题'
+            }
+            title={
+              mounted
+                ? theme === 'dark'
+                  ? '切换到浅色模式'
+                  : '切换到暗黑模式'
+                : '切换主题'
+            }
+            disabled={!mounted}
           >
-            {theme === 'dark' ? (
-              <Sun className="size-4" />
+            {mounted ? (
+              theme === 'dark' ? (
+                <Sun className="size-4" />
+              ) : (
+                <Moon className="size-4" />
+              )
             ) : (
-              <Moon className="size-4" />
+              <Sun className="size-4 opacity-0" aria-hidden="true" />
             )}
           </Button>
 

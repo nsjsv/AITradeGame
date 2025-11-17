@@ -93,6 +93,8 @@ docker run -d -p 5000:5000 -v $(pwd)/data:/app/data aitradegame
 点击右上角"设置"按钮，可以配置：
 - 交易频率：控制AI决策的时间间隔（1-1440分钟）
 - 交易费率：每笔交易的手续费率（默认0.1%）
+- 市场刷新间隔：市场价格的刷新频率（以秒为单位）
+- 投资组合刷新间隔：投资组合与图表的刷新频率（以秒为单位）
 
 ## 支持的 AI 模型
 
@@ -170,7 +172,7 @@ cp .env.example .env.local
 
 编辑 `.env.local` 并设置 API 地址：
 ```bash
-NEXT_PUBLIC_API_URL=http://localhost:5000
+NEXT_PUBLIC_API_BASE_URL=http://localhost:5000
 ```
 
 4. 启动开发服务器：

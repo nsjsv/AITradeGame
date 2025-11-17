@@ -11,11 +11,12 @@
 
 'use client'
 
-import React, { useMemo, lazy, Suspense } from 'react'
+import React, { useMemo, lazy, Suspense, useEffect, useRef } from 'react'
 import { useTheme } from 'next-themes'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatPrice, formatTimestamp } from '@/lib/utils'
 import type { AccountValueHistory, ModelChartData } from '@/lib/types'
+import type { ECharts } from 'echarts'
 
 // 懒加载 ECharts 组件
 const ReactECharts = lazy(() => import('echarts-for-react'))
@@ -49,9 +50,72 @@ const CHART_COLORS_DARK = [
   '#f5f5f5', // gray-100
 ]
 
+const sortByTimestampAscending = <T extends { timestamp: string }>(items: T[]): T[] =>
+  [...items].sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  )
+
 export const AccountChart = React.memo(function AccountChart({ data, type, isLoading }: AccountChartProps) {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const chartInstanceRef = useRef<ECharts | null>(null)
+
+  /**
+   * 计算最新快照信息（用于图表顶部展示）
+   */
+  const latestSnapshot = useMemo(() => {
+    if (!data || data.length === 0) {
+      return null
+    }
+
+    if (type === 'single') {
+      const singleData = sortByTimestampAscending(data as AccountValueHistory[])
+      const latestPoint = singleData[singleData.length - 1]
+      if (!latestPoint) {
+        return null
+      }
+      return {
+        value: formatPrice(latestPoint.total_value),
+        timestamp: formatTimestamp(latestPoint.timestamp, 'datetime'),
+      }
+    }
+
+    const aggregatedData = (data as ModelChartData[])
+      .filter(
+        (model): model is ModelChartData & { data: AccountValueHistory[] } =>
+          Array.isArray(model.data) && model.data.length > 0
+      )
+      .map((model) => ({
+        ...model,
+        data: sortByTimestampAscending(model.data),
+      }))
+
+    if (aggregatedData.length === 0) {
+      return null
+    }
+
+    const lastTimestamps = aggregatedData
+      .map((model) => model.data[model.data.length - 1]?.timestamp)
+      .filter(Boolean) as string[]
+    const latestTimestamp = lastTimestamps[lastTimestamps.length - 1]
+
+    const latestTotal = aggregatedData.reduce((sum, model) => {
+      const latestPoint = model.data[model.data.length - 1]
+      if (!latestPoint) {
+        return sum
+      }
+      return sum + latestPoint.total_value
+    }, 0)
+
+    if (!latestTimestamp) {
+      return null
+    }
+
+    return {
+      value: formatPrice(latestTotal),
+      timestamp: formatTimestamp(latestTimestamp, 'datetime'),
+    }
+  }, [data, type])
 
   /**
    * 生成 ECharts 配置
@@ -69,22 +133,44 @@ export const AccountChart = React.memo(function AccountChart({ data, type, isLoa
     const axisLabelColor = isDark ? '#a3a3a3' : '#737373'
     const splitLineColor = isDark ? '#262626' : '#e5e5e5'
     const primaryColor = isDark ? '#a3a3a3' : '#737373'
+    const blurArea = isDark ? 'rgba(216, 215, 213, 0.08)' : 'rgba(0, 0, 0, 0.04)'
+    const animationProps = {
+      animationDuration: 480,
+      animationDurationUpdate: 320,
+      animationEasing: 'cubicOut',
+      animationEasingUpdate: 'cubicOut',
+    }
 
     // 单模型视图
     if (type === 'single') {
-      const singleData = data as AccountValueHistory[]
+      const singleData = sortByTimestampAscending(data as AccountValueHistory[])
       
       const timestamps = singleData.map((item) => 
         formatTimestamp(item.timestamp, 'datetime')
       )
       const values = singleData.map((item) => item.total_value)
 
+      const latestCoordinate = [
+        timestamps[timestamps.length - 1],
+        values[values.length - 1],
+      ]
+      const hasLatestPoint =
+        latestCoordinate[0] !== undefined && latestCoordinate[1] !== undefined
+
       return {
+        ...animationProps,
         tooltip: {
           trigger: 'axis',
           backgroundColor: tooltipBg,
           borderColor: tooltipBorder,
           borderWidth: 1,
+          axisPointer: {
+            type: 'cross',
+            label: {
+              backgroundColor: tooltipBg,
+              color: tooltipText,
+            },
+          },
           textStyle: {
             color: tooltipText,
           },
@@ -101,10 +187,32 @@ export const AccountChart = React.memo(function AccountChart({ data, type, isLoa
             `
           },
         },
+        dataZoom: [
+          {
+            type: 'inside',
+            zoomOnMouseWheel: true,
+            moveOnMouseMove: true,
+            moveOnMouseWheel: true,
+          },
+          {
+            type: 'slider',
+            show: true,
+            height: 8,
+            right: 10,
+            bottom: 6,
+            brushSelect: false,
+            borderColor: 'transparent',
+            handleSize: 14,
+            handleStyle: {
+              color: primaryColor,
+            },
+            labelFormatter: '',
+          },
+        ],
         grid: {
           left: '3%',
           right: '4%',
-          bottom: '3%',
+          bottom: '15%',
           top: '10%',
           containLabel: true,
         },
@@ -121,9 +229,17 @@ export const AccountChart = React.memo(function AccountChart({ data, type, isLoa
             color: axisLabelColor,
             fontSize: 11,
           },
+          axisPointer: {
+            show: true,
+            lineStyle: {
+              color: axisLineColor,
+              width: 1,
+            },
+          },
         },
         yAxis: {
           type: 'value',
+          scale: true,
           axisLine: {
             show: false,
           },
@@ -150,50 +266,82 @@ export const AccountChart = React.memo(function AccountChart({ data, type, isLoa
             smooth: true,
             symbol: 'circle',
             symbolSize: 6,
+            showSymbol: false,
             lineStyle: {
-              width: 2,
+              width: 3,
               color: primaryColor,
             },
             itemStyle: {
               color: primaryColor,
             },
             areaStyle: {
-              color: {
-                type: 'linear',
-                x: 0,
-                y: 0,
-                x2: 0,
-                y2: 1,
-                colorStops: [
-                  {
-                    offset: 0,
-                    color: isDark ? 'rgba(163, 163, 163, 0.3)' : 'rgba(115, 115, 115, 0.3)',
-                  },
-                  {
-                    offset: 1,
-                    color: isDark ? 'rgba(163, 163, 163, 0.05)' : 'rgba(115, 115, 115, 0.05)',
-                  },
-                ],
-              },
+              color: blurArea,
             },
+            emphasis: {
+              focus: 'series',
+              lineStyle: { width: 4 },
+            },
+            universalTransition: true,
+            markPoint: hasLatestPoint
+              ? {
+                symbol: 'circle',
+                symbolSize: 12,
+                data: [
+                {
+                  coord: latestCoordinate,
+                  value: latestCoordinate[1],
+                  label: {
+                    formatter: (param: any) => formatPrice(param.value),
+                    color: tooltipText,
+                    fontWeight: 600,
+                    backgroundColor: tooltipBg,
+                    borderColor: tooltipBorder,
+                    borderWidth: 1,
+                    borderRadius: 999,
+                    padding: [4, 8],
+                  },
+                },
+              ],
+              animationDuration: 200,
+            }
+              : undefined,
           },
         ],
       }
     }
 
     // 聚合视图
-    const aggregatedData = data as ModelChartData[]
+    const aggregatedData = (data as ModelChartData[])
+      .filter(
+        (item): item is ModelChartData & { data: AccountValueHistory[] } =>
+          Array.isArray(item.data) && item.data.length > 0
+      )
+      .map((item) => ({
+        ...item,
+        data: sortByTimestampAscending(item.data),
+      }))
+
+    if (aggregatedData.length === 0) {
+      return null
+    }
     
+    const getTotalValue = (entry: AccountValueHistory | { value?: number }) => {
+      if ('total_value' in entry) {
+        return entry.total_value
+      }
+      return entry.value ?? 0
+    }
+
     // 获取所有时间戳（使用第一个模型的时间戳作为基准）
-    const timestamps = aggregatedData[0]?.data.map((item) =>
+    const timestamps = aggregatedData[0].data.map((item) =>
       formatTimestamp(item.timestamp, 'datetime')
-    ) || []
+    )
 
     // 生成每个模型的系列数据
     const series = aggregatedData.map((modelData, index) => ({
       name: modelData.model_name,
       type: 'line',
-      data: modelData.data.map((item) => item.total_value),
+      data: modelData.data.map((item) => getTotalValue(item)),
       smooth: true,
       symbol: 'circle',
       symbolSize: 6,
@@ -207,6 +355,7 @@ export const AccountChart = React.memo(function AccountChart({ data, type, isLoa
     }))
 
     return {
+      ...animationProps,
       tooltip: {
         trigger: 'axis',
         backgroundColor: tooltipBg,
@@ -231,6 +380,13 @@ export const AccountChart = React.memo(function AccountChart({ data, type, isLoa
           result += '</div>'
           return result
         },
+        axisPointer: {
+          type: 'cross',
+          label: {
+            backgroundColor: tooltipBg,
+            color: tooltipText,
+          },
+        },
       },
       legend: {
         data: aggregatedData.map((item) => item.model_name),
@@ -243,10 +399,32 @@ export const AccountChart = React.memo(function AccountChart({ data, type, isLoa
       grid: {
         left: '3%',
         right: '4%',
-        bottom: '3%',
+        bottom: '15%',
         top: '15%',
         containLabel: true,
       },
+      dataZoom: [
+        {
+          type: 'inside',
+          zoomOnMouseWheel: true,
+          moveOnMouseMove: true,
+          moveOnMouseWheel: true,
+        },
+        {
+          type: 'slider',
+          show: true,
+          height: 8,
+          right: 10,
+          bottom: 6,
+          brushSelect: false,
+          borderColor: 'transparent',
+          handleSize: 14,
+          handleStyle: {
+            color: axisLabelColor,
+          },
+          labelFormatter: '',
+        },
+      ],
       xAxis: {
         type: 'category',
         data: timestamps,
@@ -263,6 +441,7 @@ export const AccountChart = React.memo(function AccountChart({ data, type, isLoa
       },
       yAxis: {
         type: 'value',
+        scale: true,
         axisLine: {
           show: false,
         },
@@ -281,9 +460,30 @@ export const AccountChart = React.memo(function AccountChart({ data, type, isLoa
           },
         },
       },
-      series,
+      series: series.map((item, index) => ({
+        ...item,
+        showSymbol: false,
+        areaStyle: {
+          color: isDark ? 'rgba(216, 215, 213, 0.04)' : 'rgba(0, 0, 0, 0.02)',
+        },
+        emphasis: {
+          focus: 'series',
+        },
+        universalTransition: true,
+        lineStyle: {
+          ...item.lineStyle,
+          width: 2.5,
+        },
+        animationDuration: 420 + index * 20,
+      })),
     }
   }, [data, type, isDark])
+
+  useEffect(() => {
+    if (chartOption && chartInstanceRef.current) {
+      chartInstanceRef.current.setOption(chartOption, false, true)
+    }
+  }, [chartOption])
 
   // 加载状态
   if (isLoading) {
@@ -321,8 +521,18 @@ export const AccountChart = React.memo(function AccountChart({ data, type, isLoa
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle>账户价值</CardTitle>
+        {latestSnapshot && (
+          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">
+              最新：{latestSnapshot.value}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              更新时间：{latestSnapshot.timestamp}
+            </span>
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         <Suspense fallback={
@@ -331,11 +541,17 @@ export const AccountChart = React.memo(function AccountChart({ data, type, isLoa
           </div>
         }>
           <ReactECharts
-            option={chartOption}
+            option={chartOption ?? undefined}
             style={{ height: '400px', width: '100%' }}
             opts={{ renderer: 'canvas' }}
-            notMerge={true}
+            notMerge={false}
             lazyUpdate={true}
+            onChartReady={(instance) => {
+              chartInstanceRef.current = instance
+              if (chartOption) {
+                instance.setOption(chartOption, false, true)
+              }
+            }}
           />
         </Suspense>
       </CardContent>

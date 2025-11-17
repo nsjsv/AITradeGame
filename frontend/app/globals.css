@@ -44,13 +44,13 @@
 
 :root {
   --radius: 0.75rem;
-  /* Neutral gray color system - light mode (white-ish grays) */
-  --background: oklch(1 0 0); /* white */
-  --foreground: oklch(0.25 0 0); /* gray-900 */
-  --card: oklch(1 0 0); /* white */
-  --card-foreground: oklch(0.25 0 0); /* gray-900 */
-  --popover: oklch(1 0 0); /* white */
-  --popover-foreground: oklch(0.25 0 0); /* gray-900 */
+  /* Light mode palette */
+  --background: #ffffff; /* white */
+  --foreground: #000000; /* black */
+  --card: #f9f8f7; /* soft light gray */
+  --card-foreground: #000000; /* black */
+  --popover: #f9f8f7; /* match card */
+  --popover-foreground: #000000; /* black */
   --primary: oklch(0.25 0 0); /* gray-900 */
   --primary-foreground: oklch(1 0 0); /* white */
   --secondary: oklch(0.96 0 0); /* gray-100 */
@@ -84,13 +84,13 @@
 }
 
 .dark {
-  /* Neutral gray color system - dark mode (black-ish grays) */
-  --background: oklch(0.10 0 0); /* gray-950 */
-  --foreground: oklch(0.95 0 0); /* gray-100 */
-  --card: oklch(0.15 0 0); /* gray-900 */
-  --card-foreground: oklch(0.95 0 0); /* gray-100 */
-  --popover: oklch(0.15 0 0); /* gray-900 */
-  --popover-foreground: oklch(0.95 0 0); /* gray-100 */
+  /* Dark mode palette */
+  --background: #191919; /* near-black gray */
+  --foreground: #d8d7d5; /* soft light text */
+  --card: #202020; /* muted dark gray */
+  --card-foreground: #d8d7d5; /* soft light text */
+  --popover: #202020; /* match card */
+  --popover-foreground: #d8d7d5; /* soft light text */
   --primary: oklch(0.95 0 0); /* gray-100 */
   --primary-foreground: oklch(0.15 0 0); /* gray-900 */
   --secondary: oklch(0.20 0 0); /* gray-800 */

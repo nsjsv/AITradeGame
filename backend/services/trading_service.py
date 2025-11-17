@@ -8,6 +8,7 @@ from backend.data.database import DatabaseInterface
 from backend.data.market_data import MarketDataFetcher
 from backend.core.trading_engine import TradingEngine
 from backend.core.ai_trader import AITrader
+from backend.config.constants import DEFAULT_TRADE_FEE_RATE
 
 
 class TradingService:
@@ -26,6 +27,7 @@ class TradingService:
         self.db = db
         self.market_fetcher = market_fetcher
         self.engines = {}  # model_id -> TradingEngine
+        self.trade_fee_rate = DEFAULT_TRADE_FEE_RATE
     
     def initialize_engines(self, trade_fee_rate: float) -> None:
         """初始化所有交易引擎
@@ -36,6 +38,7 @@ class TradingService:
             trade_fee_rate: 交易费率
         """
         try:
+            self.trade_fee_rate = trade_fee_rate
             models = self.db.get_all_models()
             
             if not models:
@@ -64,7 +67,7 @@ class TradingService:
                             api_url=provider['api_url'],
                             model_name=model['model_name']
                         ),
-                        trade_fee_rate=trade_fee_rate
+                        trade_fee_rate=self.trade_fee_rate
                     )
                     print(f"  [OK] Model {model_id} ({model_name})")
                 except Exception as e:
@@ -141,7 +144,7 @@ class TradingService:
                     api_url=provider['api_url'],
                     model_name=model['model_name']
                 ),
-                trade_fee_rate=0.001  # 默认费率
+                trade_fee_rate=self.trade_fee_rate
             )
             
             print(f"[INFO] Created trading engine for model {model_id}")
@@ -150,3 +153,10 @@ class TradingService:
         except Exception as e:
             print(f"[ERROR] Failed to create engine for model {model_id}: {e}")
             return None
+
+    def update_trade_fee_rate(self, trade_fee_rate: float) -> None:
+        """Update trade fee rate for all managed engines"""
+        self.trade_fee_rate = trade_fee_rate
+
+        for engine in self.engines.values():
+            engine.trade_fee_rate = trade_fee_rate

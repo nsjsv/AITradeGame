@@ -80,6 +80,7 @@ export function useSettings(): UseSettingsReturn {
       
       if (response.success) {
         await loadSettings()
+        await loadConfig()
         return true
       } else {
         setError(response.error || '更新系统设置失败')
@@ -89,7 +90,7 @@ export function useSettings(): UseSettingsReturn {
       setError(err instanceof Error ? err.message : '更新系统设置失败')
       return false
     }
-  }, [loadSettings])
+  }, [loadSettings, loadConfig])
 
   // 初始加载
   useEffect(() => {

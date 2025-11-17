@@ -43,6 +43,9 @@ coverage.xml
 
 # Environments
 .env
+.env.local
+.env.development
+.env.production
 .venv
 env/
 venv/

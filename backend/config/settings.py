@@ -15,10 +15,6 @@ class Config:
     SQLITE_PATH = os.getenv('SQLITE_PATH', 'AITradeGame.db')
     POSTGRES_URI = os.getenv('POSTGRES_URI', '')
     
-    # Trading configuration
-    DEFAULT_TRADE_FEE_RATE = float(os.getenv('TRADE_FEE_RATE', '0.001'))
-    DEFAULT_TRADING_FREQUENCY = int(os.getenv('TRADING_FREQUENCY', '180'))
-    
     # Market data configuration
     MARKET_CACHE_DURATION = int(os.getenv('MARKET_CACHE_DURATION', '5'))
     MARKET_API_URL = os.getenv('MARKET_API_URL', 'https://api.coingecko.com/api/v3')
@@ -33,6 +29,3 @@ class Config:
     # Logging
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
     
-    # Frontend configuration
-    MARKET_REFRESH_INTERVAL = int(os.getenv('MARKET_REFRESH_INTERVAL', '5000'))
-    PORTFOLIO_REFRESH_INTERVAL = int(os.getenv('PORTFOLIO_REFRESH_INTERVAL', '10000'))

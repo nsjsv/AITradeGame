@@ -8,6 +8,7 @@ import type {
   TradingModel,
   MarketPrices,
   FrontendConfig,
+  ApiProvider,
 } from '@/lib/types'
 
 // ============================================================================
@@ -19,6 +20,7 @@ interface AppState {
   selectedModelId: number | null
   isAggregatedView: boolean
   models: TradingModel[]
+  providers: ApiProvider[]
 
   // 市场数据
   marketPrices: MarketPrices
@@ -37,6 +39,7 @@ interface AppState {
   setSelectedModel: (id: number | null) => void
   setAggregatedView: (isAggregated: boolean) => void
   setModels: (models: TradingModel[]) => void
+  setProviders: (providers: ApiProvider[]) => void
   setMarketPrices: (prices: MarketPrices) => void
   setConfig: (config: FrontendConfig) => void
   setRefreshing: (isRefreshing: boolean) => void
@@ -54,6 +57,7 @@ const initialState = {
   selectedModelId: null,
   isAggregatedView: false,
   models: [],
+  providers: [],
   marketPrices: {},
   config: null,
   isRefreshing: false,
@@ -89,6 +93,8 @@ export const useAppStore = create<AppState>()(
 
         // 设置模型列表
         setModels: (models) => set({ models }, false, 'setModels'),
+        // 设置提供方列表
+        setProviders: (providers) => set({ providers }, false, 'setProviders'),
 
         // 设置市场价格
         setMarketPrices: (prices) =>

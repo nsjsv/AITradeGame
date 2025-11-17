@@ -113,10 +113,10 @@ Key configuration options:
 - `DATABASE_TYPE`: Database type - sqlite or postgresql (default: sqlite)
 - `SQLITE_PATH`: SQLite database file path (default: AITradeGame.db)
 - `POSTGRES_URI`: PostgreSQL connection URI (for future migration)
-- `TRADE_FEE_RATE`: Trading fee rate (default: 0.001 = 0.1%)
-- `TRADING_FREQUENCY`: Trading frequency in minutes (default: 180)
 - `AUTO_TRADING`: Enable automatic trading (default: True)
 - `LOG_LEVEL`: Logging level (default: INFO)
+
+Trading frequency, fee rate, and refresh intervals are now configured inside the in-app **Settings** dialog instead of environment variables.
 
 ### API Provider Setup
 First, add AI service providers:
@@ -137,6 +137,8 @@ After configuring providers, add trading models:
 Click the "Settings" button to configure:
 - Trading Frequency: Control AI decision interval (1-1440 minutes)
 - Trading Fee Rate: Commission rate per trade (default 0.1%)
+- Market Refresh Interval: How often market data updates (seconds)
+- Portfolio Refresh Interval: How often portfolio data refreshes (seconds)
 
 ## Supported AI Models
 
@@ -212,9 +214,9 @@ npm install
 cp .env.example .env.local
 ```
 
-Edit `.env.local` and set the API URL:
+Edit `.env.local` and set the API base URL:
 ```bash
-NEXT_PUBLIC_API_URL=http://localhost:5000
+NEXT_PUBLIC_API_BASE_URL=http://localhost:5000
 ```
 
 4. Start the development server:

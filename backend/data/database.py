@@ -230,7 +230,9 @@ class DatabaseInterface(ABC):
         pass
     
     @abstractmethod
-    def update_settings(self, trading_frequency_minutes: int, 
-                       trading_fee_rate: float) -> bool:
+    def update_settings(self, trading_frequency_minutes: int,
+                       trading_fee_rate: float,
+                       market_refresh_interval: int,
+                       portfolio_refresh_interval: int) -> bool:
         """Update system settings"""
         pass

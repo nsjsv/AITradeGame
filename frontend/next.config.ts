@@ -1,4 +1,21 @@
 import type { NextConfig } from "next";
+import { config as loadEnv } from "dotenv";
+import { existsSync } from "fs";
+import { join } from "path";
+
+const repoRoot = join(process.cwd(), "..");
+const envFiles = [
+  ".env.local",
+  process.env.NODE_ENV === "production" ? ".env.production" : ".env.development",
+  ".env",
+].filter(Boolean) as string[];
+
+envFiles.forEach((file) => {
+  const filePath = join(repoRoot, file);
+  if (existsSync(filePath)) {
+    loadEnv({ path: filePath, override: true });
+  }
+});
 
 const nextConfig: NextConfig = {
   /* config options here */

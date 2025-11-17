@@ -12,11 +12,16 @@ import time
 from datetime import datetime
 
 from backend.config.settings import Config
+from backend.config.constants import (
+    DEFAULT_TRADE_FEE_RATE,
+    DEFAULT_TRADING_FREQUENCY_MINUTES,
+)
 from backend.data.sqlite_db import SQLiteDatabase
 from backend.data.market_data import MarketDataFetcher
 from backend.services.trading_service import TradingService
 from backend.services.portfolio_service import PortfolioService
 from backend.services.market_service import MarketService
+from backend.data.database import DatabaseInterface
 
 # Import all blueprints
 from backend.api.providers import providers_bp
@@ -81,7 +86,7 @@ def create_app(config: Config = None) -> Flask:
     return app
 
 
-def start_trading_loop(trading_service: TradingService, config: Config):
+def start_trading_loop(trading_service: TradingService, db: DatabaseInterface):
     """Start the automated trading loop
     
     This function runs in a separate thread and executes trading cycles
@@ -89,7 +94,7 @@ def start_trading_loop(trading_service: TradingService, config: Config):
     
     Args:
         trading_service: TradingService instance to execute trades
-        config: Configuration object containing trading settings
+        db: Database interface used to load runtime settings
     """
     print("[INFO] Trading loop started")
     
@@ -131,13 +136,18 @@ def start_trading_loop(trading_service: TradingService, config: Config):
                     print(traceback.format_exc())
                     continue
             
+            # Determine sleep interval from settings (minutes -> seconds)
+            settings = db.get_settings()
+            interval_minutes = max(settings.get('trading_frequency_minutes', DEFAULT_TRADING_FREQUENCY_MINUTES), 1)
+            sleep_seconds = interval_minutes * 60
+
             # Print cycle footer
             print(f"\n{'='*60}")
-            print(f"[SLEEP] Waiting {config.DEFAULT_TRADING_FREQUENCY} seconds for next cycle")
+            print(f"[SLEEP] Waiting {sleep_seconds} seconds for next cycle")
             print(f"{'='*60}\n")
             
             # Sleep until next cycle
-            time.sleep(config.DEFAULT_TRADING_FREQUENCY)
+            time.sleep(sleep_seconds)
             
         except Exception as e:
             print(f"\n[CRITICAL] Trading loop error: {e}")
@@ -163,16 +173,19 @@ if __name__ == '__main__':
     
     # Get services from app config
     trading_service = app.config['trading_service']
+    db = app.config['db']
     
     # Initialize trading engines
     print("[INFO] Initializing trading engines...")
-    trading_service.initialize_engines(config.DEFAULT_TRADE_FEE_RATE)
+    settings = db.get_settings()
+    trade_fee_rate = settings.get('trading_fee_rate', DEFAULT_TRADE_FEE_RATE)
+    trading_service.initialize_engines(trade_fee_rate)
     
     # Start auto-trading thread if enabled
     if config.AUTO_TRADING:
         trading_thread = threading.Thread(
             target=start_trading_loop,
-            args=(trading_service, config),
+            args=(trading_service, db),
             daemon=True
         )
         trading_thread.start()

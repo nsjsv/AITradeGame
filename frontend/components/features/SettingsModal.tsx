@@ -34,6 +34,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   // 表单状态
   const [tradingFrequency, setTradingFrequency] = useState<string>('')
   const [tradingFeeRate, setTradingFeeRate] = useState<string>('')
+  const [marketRefreshInterval, setMarketRefreshInterval] = useState<string>('')
+  const [portfolioRefreshInterval, setPortfolioRefreshInterval] = useState<string>('')
   
   // UI 状态
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -45,6 +47,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     if (settings) {
       setTradingFrequency(String(settings.trading_frequency_minutes))
       setTradingFeeRate(String(settings.trading_fee_rate))
+      setMarketRefreshInterval(String(settings.market_refresh_interval))
+      setPortfolioRefreshInterval(String(settings.portfolio_refresh_interval))
     }
   }, [settings])
 
@@ -66,8 +70,18 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
       return '交易费率不能大于 1 (100%)'
     }
 
+    const marketInterval = Number(marketRefreshInterval)
+    if (isNaN(marketInterval) || marketInterval < 1) {
+      return '市场刷新间隔必须大于等于 1 秒'
+    }
+
+    const portfolioInterval = Number(portfolioRefreshInterval)
+    if (isNaN(portfolioInterval) || portfolioInterval < 1) {
+      return '投资组合刷新间隔必须大于等于 1 秒'
+    }
+
     return null
-  }, [tradingFrequency, tradingFeeRate])
+  }, [tradingFrequency, tradingFeeRate, marketRefreshInterval, portfolioRefreshInterval])
 
   // 提交表单
   const handleSubmit = useCallback(async () => {
@@ -87,6 +101,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
       const data: SystemSettings = {
         trading_frequency_minutes: Number(tradingFrequency),
         trading_fee_rate: Number(tradingFeeRate),
+        market_refresh_interval: Number(marketRefreshInterval),
+        portfolio_refresh_interval: Number(portfolioRefreshInterval),
       }
 
       const success = await updateSettings(data)
@@ -105,13 +121,15 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     } finally {
       setIsSubmitting(false)
     }
-  }, [validateForm, tradingFrequency, tradingFeeRate, updateSettings])
+  }, [validateForm, tradingFrequency, tradingFeeRate, marketRefreshInterval, portfolioRefreshInterval, updateSettings])
 
   // 重置表单到当前设置
   const handleReset = useCallback(() => {
     if (settings) {
       setTradingFrequency(String(settings.trading_frequency_minutes))
       setTradingFeeRate(String(settings.trading_fee_rate))
+      setMarketRefreshInterval(String(settings.market_refresh_interval))
+      setPortfolioRefreshInterval(String(settings.portfolio_refresh_interval))
       setError(null)
       setSuccessMessage(null)
     }
@@ -173,6 +191,43 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
             />
             <p className="text-xs text-muted-foreground">
               每笔交易的手续费率 (例如: 0.001 = 0.1%)
+            </p>
+          </div>
+
+          {/* 市场刷新间隔 */}
+          <div className="grid gap-2">
+            <label htmlFor="marketRefreshInterval" className="text-sm font-medium">
+              市场数据刷新间隔 (秒)
+            </label>
+            <Input
+              id="marketRefreshInterval"
+              type="number"
+              placeholder="5"
+              value={marketRefreshInterval}
+              onChange={(e) => setMarketRefreshInterval(e.target.value)}
+              min="1"
+              step="1"
+            />
+            <p className="text-xs text-muted-foreground">
+              刷新市场价格的时间间隔，单位为秒
+            </p>
+          </div>
+          {/* 投资组合刷新间隔 */}
+          <div className="grid gap-2">
+            <label htmlFor="portfolioRefreshInterval" className="text-sm font-medium">
+              投资组合刷新间隔 (秒)
+            </label>
+            <Input
+              id="portfolioRefreshInterval"
+              type="number"
+              placeholder="10"
+              value={portfolioRefreshInterval}
+              onChange={(e) => setPortfolioRefreshInterval(e.target.value)}
+              min="1"
+              step="1"
+            />
+            <p className="text-xs text-muted-foreground">
+              刷新投资组合和图表的时间间隔，单位为秒
             </p>
           </div>
 

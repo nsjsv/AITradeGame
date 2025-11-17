@@ -4,9 +4,10 @@
  * 用于获取 AI 对话记录
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { apiClient } from '@/lib/api'
 import { useAppStore } from '@/store/useAppStore'
+import { useInterval } from './useInterval'
 import type { Conversation } from '@/lib/types'
 
 interface UseConversationsReturn {
@@ -17,10 +18,15 @@ interface UseConversationsReturn {
 }
 
 export function useConversations(limit: number = 20): UseConversationsReturn {
-  const { selectedModelId, isAggregatedView } = useAppStore()
+  const { selectedModelId, isAggregatedView, config } = useAppStore()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const refreshInterval = useMemo(
+    () => (config?.portfolio_refresh_interval ? config.portfolio_refresh_interval * 1000 : 10000),
+    [config?.portfolio_refresh_interval]
+  )
 
   /**
    * 加载对话记录
@@ -54,6 +60,12 @@ export function useConversations(limit: number = 20): UseConversationsReturn {
   useEffect(() => {
     loadConversations()
   }, [loadConversations])
+
+  // 定时刷新（仅在单模型视图下）
+  useInterval(
+    loadConversations,
+    !isAggregatedView && selectedModelId ? refreshInterval : null
+  )
 
   return {
     conversations,

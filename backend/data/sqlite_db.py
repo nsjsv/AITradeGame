@@ -5,6 +5,12 @@ import sqlite3
 from typing import List, Dict, Optional
 
 from backend.data.database import DatabaseInterface
+from backend.config.constants import (
+    DEFAULT_TRADE_FEE_RATE,
+    DEFAULT_TRADING_FREQUENCY_MINUTES,
+    DEFAULT_MARKET_REFRESH_INTERVAL,
+    DEFAULT_PORTFOLIO_REFRESH_INTERVAL,
+)
 
 
 class SQLiteDatabase(DatabaseInterface):
@@ -110,23 +116,55 @@ class SQLiteDatabase(DatabaseInterface):
         ''')
 
         # Settings table
-        cursor.execute('''
+        cursor.execute(f'''
             CREATE TABLE IF NOT EXISTS settings (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                trading_frequency_minutes INTEGER DEFAULT 60,
-                trading_fee_rate REAL DEFAULT 0.001,
+                trading_frequency_minutes INTEGER DEFAULT {DEFAULT_TRADING_FREQUENCY_MINUTES},
+                trading_fee_rate REAL DEFAULT {DEFAULT_TRADE_FEE_RATE},
+                market_refresh_interval INTEGER DEFAULT {DEFAULT_MARKET_REFRESH_INTERVAL},
+                portfolio_refresh_interval INTEGER DEFAULT {DEFAULT_PORTFOLIO_REFRESH_INTERVAL},
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
 
+        # Ensure new settings columns exist for legacy databases
+        cursor.execute('PRAGMA table_info(settings)')
+        existing_columns = {row['name'] for row in cursor.fetchall()}
+        if 'market_refresh_interval' not in existing_columns:
+            cursor.execute(
+                f'ALTER TABLE settings ADD COLUMN market_refresh_interval INTEGER DEFAULT {DEFAULT_MARKET_REFRESH_INTERVAL}'
+            )
+            cursor.execute(
+                'UPDATE settings SET market_refresh_interval = ? WHERE market_refresh_interval IS NULL',
+                (DEFAULT_MARKET_REFRESH_INTERVAL,)
+            )
+        if 'portfolio_refresh_interval' not in existing_columns:
+            cursor.execute(
+                f'ALTER TABLE settings ADD COLUMN portfolio_refresh_interval INTEGER DEFAULT {DEFAULT_PORTFOLIO_REFRESH_INTERVAL}'
+            )
+            cursor.execute(
+                'UPDATE settings SET portfolio_refresh_interval = ? WHERE portfolio_refresh_interval IS NULL',
+                (DEFAULT_PORTFOLIO_REFRESH_INTERVAL,)
+            )
+
         # Insert default settings if no settings exist
         cursor.execute('SELECT COUNT(*) FROM settings')
         if cursor.fetchone()[0] == 0:
             cursor.execute('''
-                INSERT INTO settings (trading_frequency_minutes, trading_fee_rate)
-                VALUES (60, 0.001)
-            ''')
+                INSERT INTO settings (
+                    trading_frequency_minutes,
+                    trading_fee_rate,
+                    market_refresh_interval,
+                    portfolio_refresh_interval
+                )
+                VALUES (?, ?, ?, ?)
+            ''', (
+                DEFAULT_TRADING_FREQUENCY_MINUTES,
+                DEFAULT_TRADE_FEE_RATE,
+                DEFAULT_MARKET_REFRESH_INTERVAL,
+                DEFAULT_PORTFOLIO_REFRESH_INTERVAL
+            ))
 
         conn.commit()
         conn.close()
@@ -521,7 +559,10 @@ class SQLiteDatabase(DatabaseInterface):
         cursor = conn.cursor()
 
         cursor.execute('''
-            SELECT trading_frequency_minutes, trading_fee_rate
+            SELECT trading_frequency_minutes,
+                   trading_fee_rate,
+                   market_refresh_interval,
+                   portfolio_refresh_interval
             FROM settings
             ORDER BY id DESC
             LIMIT 1
@@ -533,17 +574,23 @@ class SQLiteDatabase(DatabaseInterface):
         if row:
             return {
                 'trading_frequency_minutes': row['trading_frequency_minutes'],
-                'trading_fee_rate': row['trading_fee_rate']
+                'trading_fee_rate': row['trading_fee_rate'],
+                'market_refresh_interval': row['market_refresh_interval'],
+                'portfolio_refresh_interval': row['portfolio_refresh_interval']
             }
         else:
             # Return default settings if none exist
             return {
-                'trading_frequency_minutes': 60,
-                'trading_fee_rate': 0.001
+                'trading_frequency_minutes': DEFAULT_TRADING_FREQUENCY_MINUTES,
+                'trading_fee_rate': DEFAULT_TRADE_FEE_RATE,
+                'market_refresh_interval': DEFAULT_MARKET_REFRESH_INTERVAL,
+                'portfolio_refresh_interval': DEFAULT_PORTFOLIO_REFRESH_INTERVAL
             }
 
-    def update_settings(self, trading_frequency_minutes: int, 
-                       trading_fee_rate: float) -> bool:
+    def update_settings(self, trading_frequency_minutes: int,
+                       trading_fee_rate: float,
+                       market_refresh_interval: int,
+                       portfolio_refresh_interval: int) -> bool:
         """Update system settings"""
         conn = self.get_connection()
         cursor = conn.cursor()
@@ -553,11 +600,18 @@ class SQLiteDatabase(DatabaseInterface):
                 UPDATE settings
                 SET trading_frequency_minutes = ?,
                     trading_fee_rate = ?,
+                    market_refresh_interval = ?,
+                    portfolio_refresh_interval = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = (
                     SELECT id FROM settings ORDER BY id DESC LIMIT 1
                 )
-            ''', (trading_frequency_minutes, trading_fee_rate))
+            ''', (
+                trading_frequency_minutes,
+                trading_fee_rate,
+                market_refresh_interval,
+                portfolio_refresh_interval
+            ))
 
             conn.commit()
             conn.close()

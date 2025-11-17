@@ -9,6 +9,12 @@ This module handles all system-related API routes including:
 
 import re
 from flask import Blueprint, request, jsonify, current_app
+from backend.config.constants import (
+    DEFAULT_TRADE_FEE_RATE,
+    DEFAULT_MARKET_REFRESH_INTERVAL,
+    DEFAULT_PORTFOLIO_REFRESH_INTERVAL,
+    DEFAULT_TRADING_FREQUENCY_MINUTES,
+)
 from backend.utils.version import (
     __version__,
     __github_owner__,
@@ -36,13 +42,15 @@ def get_settings():
 def get_config():
     """Get frontend configuration"""
     config = current_app.config['app_config']
+    db = current_app.config['db']
+    settings = db.get_settings()
     
     try:
         return jsonify({
-            'market_refresh_interval': config.MARKET_REFRESH_INTERVAL,
-            'portfolio_refresh_interval': config.PORTFOLIO_REFRESH_INTERVAL,
+            'market_refresh_interval': settings.get('market_refresh_interval', DEFAULT_MARKET_REFRESH_INTERVAL),
+            'portfolio_refresh_interval': settings.get('portfolio_refresh_interval', DEFAULT_PORTFOLIO_REFRESH_INTERVAL),
             'trading_coins': config.DEFAULT_COINS,
-            'trade_fee_rate': config.DEFAULT_TRADE_FEE_RATE
+            'trade_fee_rate': settings.get('trading_fee_rate', DEFAULT_TRADE_FEE_RATE)
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -54,13 +62,32 @@ def update_settings():
     db = current_app.config['db']
     
     try:
-        data = request.json
-        trading_frequency_minutes = int(data.get('trading_frequency_minutes', 60))
-        trading_fee_rate = float(data.get('trading_fee_rate', 0.001))
+        data = request.json or {}
+        trading_frequency_minutes = max(
+            int(data.get('trading_frequency_minutes', DEFAULT_TRADING_FREQUENCY_MINUTES)),
+            1
+        )
+        trading_fee_rate = max(float(data.get('trading_fee_rate', DEFAULT_TRADE_FEE_RATE)), 0.0)
+        market_refresh_interval = max(
+            int(data.get('market_refresh_interval', DEFAULT_MARKET_REFRESH_INTERVAL)),
+            1
+        )
+        portfolio_refresh_interval = max(
+            int(data.get('portfolio_refresh_interval', DEFAULT_PORTFOLIO_REFRESH_INTERVAL)),
+            1
+        )
 
-        success = db.update_settings(trading_frequency_minutes, trading_fee_rate)
+        success = db.update_settings(
+            trading_frequency_minutes,
+            trading_fee_rate,
+            market_refresh_interval,
+            portfolio_refresh_interval
+        )
 
         if success:
+            trading_service = current_app.config.get('trading_service')
+            if trading_service:
+                trading_service.update_trade_fee_rate(trading_fee_rate)
             return jsonify({'success': True, 'message': 'Settings updated successfully'})
         else:
             return jsonify({'success': False, 'error': 'Failed to update settings'}), 500

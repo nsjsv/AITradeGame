@@ -4,9 +4,10 @@
  * 用于获取交易记录数据
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { apiClient } from '@/lib/api'
 import { useAppStore } from '@/store/useAppStore'
+import { useInterval } from './useInterval'
 import type { Trade } from '@/lib/types'
 
 interface UseTradesReturn {
@@ -17,10 +18,15 @@ interface UseTradesReturn {
 }
 
 export function useTrades(limit: number = 50): UseTradesReturn {
-  const { selectedModelId, isAggregatedView } = useAppStore()
+  const { selectedModelId, isAggregatedView, config } = useAppStore()
   const [trades, setTrades] = useState<Trade[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const refreshInterval = useMemo(
+    () => (config?.portfolio_refresh_interval ? config.portfolio_refresh_interval * 1000 : 10000),
+    [config?.portfolio_refresh_interval]
+  )
 
   /**
    * 加载交易记录
@@ -54,6 +60,12 @@ export function useTrades(limit: number = 50): UseTradesReturn {
   useEffect(() => {
     loadTrades()
   }, [loadTrades])
+
+  // 定时刷新（仅在单模型视图下）
+  useInterval(
+    loadTrades,
+    !isAggregatedView && selectedModelId ? refreshInterval : null
+  )
 
   return {
     trades,
