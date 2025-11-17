@@ -16,12 +16,29 @@ from backend.config.constants import (
     DEFAULT_TRADE_FEE_RATE,
     DEFAULT_TRADING_FREQUENCY_MINUTES,
 )
-from backend.data.sqlite_db import SQLiteDatabase
 from backend.data.market_data import MarketDataFetcher
 from backend.services.trading_service import TradingService
 from backend.services.portfolio_service import PortfolioService
 from backend.services.market_service import MarketService
 from backend.data.database import DatabaseInterface
+from backend.data.sqlite_db import SQLiteDatabase
+
+try:
+    from backend.data.postgres_db import PostgreSQLDatabase
+except ImportError:  # pragma: no cover - optional dependency
+    PostgreSQLDatabase = None  # type: ignore[assignment]
+
+
+def initialize_database(config: Config) -> DatabaseInterface:
+    """Return the appropriate database implementation based on config."""
+    db_type = (config.DATABASE_TYPE or 'sqlite').lower()
+    if db_type in {'postgres', 'postgresql'}:
+        if PostgreSQLDatabase is None:
+            raise RuntimeError("PostgreSQL support requires the psycopg dependency")
+        if not config.POSTGRES_URI:
+            raise RuntimeError("POSTGRES_URI must be set when DATABASE_TYPE=postgresql")
+        return PostgreSQLDatabase(config.POSTGRES_URI)
+    return SQLiteDatabase(config.SQLITE_PATH)
 
 # Import all blueprints
 from backend.api.providers import providers_bp
@@ -52,9 +69,9 @@ def create_app(config: Config = None) -> Flask:
     
     # Initialize database
     print("[INFO] Initializing database...")
-    db = SQLiteDatabase(config.SQLITE_PATH)
+    db = initialize_database(config)
     db.init_db()
-    print("[INFO] Database initialized")
+    print(f"[INFO] Database initialized using {config.DATABASE_TYPE}")
     
     # Initialize market data fetcher with config
     market_fetcher = MarketDataFetcher(
