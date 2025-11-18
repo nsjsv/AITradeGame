@@ -5,40 +5,23 @@ It initializes the Flask application, sets up all services, registers blueprints
 and starts the trading loop.
 """
 
-from flask import Flask
+import atexit
+import logging
+
+from flask import Flask, g, current_app
 from flask_cors import CORS
-import threading
-import time
-from datetime import datetime
 
 from backend.config.settings import Config
 from backend.config.constants import (
     DEFAULT_TRADE_FEE_RATE,
-    DEFAULT_TRADING_FREQUENCY_MINUTES,
+    LOG_MSG_APP_STARTING,
+    LOG_MSG_AUTO_TRADING_ENABLED,
+    LOG_MSG_AUTO_TRADING_DISABLED,
 )
-from backend.data.market_data import MarketDataFetcher
-from backend.services.trading_service import TradingService
-from backend.services.portfolio_service import PortfolioService
-from backend.services.market_service import MarketService
-from backend.data.database import DatabaseInterface
-from backend.data.sqlite_db import SQLiteDatabase
-
-try:
-    from backend.data.postgres_db import PostgreSQLDatabase
-except ImportError:  # pragma: no cover - optional dependency
-    PostgreSQLDatabase = None  # type: ignore[assignment]
-
-
-def initialize_database(config: Config) -> DatabaseInterface:
-    """Return the appropriate database implementation based on config."""
-    db_type = (config.DATABASE_TYPE or 'sqlite').lower()
-    if db_type in {'postgres', 'postgresql'}:
-        if PostgreSQLDatabase is None:
-            raise RuntimeError("PostgreSQL support requires the psycopg dependency")
-        if not config.POSTGRES_URI:
-            raise RuntimeError("POSTGRES_URI must be set when DATABASE_TYPE=postgresql")
-        return PostgreSQLDatabase(config.POSTGRES_URI)
-    return SQLiteDatabase(config.SQLITE_PATH)
+from backend.utils.logging_config import LoggingConfigurator
+from backend.utils.errors import register_error_handlers
+from backend.core.service_container import ServiceContainer
+from backend.core.trading_loop_manager import TradingLoopManager
 
 # Import all blueprints
 from backend.api.providers import providers_bp
@@ -46,6 +29,9 @@ from backend.api.models import models_bp
 from backend.api.trades import trades_bp
 from backend.api.market import market_bp
 from backend.api.system import system_bp
+
+# Initialize logger
+logger = logging.getLogger(__name__)
 
 
 def create_app(config: Config = None) -> Flask:
@@ -67,31 +53,22 @@ def create_app(config: Config = None) -> Flask:
     app = Flask(__name__)
     CORS(app)
     
-    # Initialize database
-    print("[INFO] Initializing database...")
-    db = initialize_database(config)
-    db.init_db()
-    print(f"[INFO] Database initialized using {config.DATABASE_TYPE}")
+    # Create and initialize service container
+    container = ServiceContainer(config)
+    container.initialize()
     
-    # Initialize market data fetcher with config
-    market_fetcher = MarketDataFetcher(
-        api_url=config.MARKET_API_URL,
-        cache_duration=config.MARKET_CACHE_DURATION
-    )
-    
-    # Initialize services
-    print("[INFO] Initializing services...")
-    trading_service = TradingService(db, market_fetcher)
-    portfolio_service = PortfolioService(db)
-    market_service = MarketService(market_fetcher, default_coins=config.DEFAULT_COINS)
-    print("[INFO] Services initialized")
-    
-    # Store services in app.config for blueprint access
-    app.config['db'] = db
-    app.config['trading_service'] = trading_service
-    app.config['portfolio_service'] = portfolio_service
-    app.config['market_service'] = market_service
+    # Store container reference in app.config
+    app.config['container'] = container
     app.config['app_config'] = config
+    
+    # Ensure services are cleaned up on application shutdown
+    atexit.register(container.cleanup)
+    
+    # Inject services into request context
+    @app.before_request
+    def inject_services():
+        """Inject service container into Flask g object for blueprint access"""
+        g.container = current_app.config['container']
     
     # Register blueprints
     app.register_blueprint(providers_bp)
@@ -100,126 +77,70 @@ def create_app(config: Config = None) -> Flask:
     app.register_blueprint(market_bp)
     app.register_blueprint(system_bp)
     
+    # Register error handlers
+    register_error_handlers(app)
+    
     return app
-
-
-def start_trading_loop(trading_service: TradingService, db: DatabaseInterface):
-    """Start the automated trading loop
-    
-    This function runs in a separate thread and executes trading cycles
-    for all active models at regular intervals.
-    
-    Args:
-        trading_service: TradingService instance to execute trades
-        db: Database interface used to load runtime settings
-    """
-    print("[INFO] Trading loop started")
-    
-    while True:
-        try:
-            # Check if there are any engines to trade
-            if not trading_service.engines:
-                time.sleep(30)
-                continue
-            
-            # Print cycle header
-            print(f"\n{'='*60}")
-            print(f"[CYCLE] {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            print(f"[INFO] Active models: {len(trading_service.engines)}")
-            print(f"{'='*60}")
-            
-            # Execute trading cycle for each model
-            for model_id, engine in list(trading_service.engines.items()):
-                try:
-                    print(f"\n[EXEC] Model {model_id}")
-                    result = engine.execute_trading_cycle()
-                    
-                    if result.get('success'):
-                        print(f"[OK] Model {model_id} completed")
-                        if result.get('executions'):
-                            for exec_result in result['executions']:
-                                signal = exec_result.get('signal', 'unknown')
-                                coin = exec_result.get('coin', 'unknown')
-                                msg = exec_result.get('message', '')
-                                if signal != 'hold':
-                                    print(f"  [TRADE] {coin}: {msg}")
-                    else:
-                        error = result.get('error', 'Unknown error')
-                        print(f"[WARN] Model {model_id} failed: {error}")
-                        
-                except Exception as e:
-                    print(f"[ERROR] Model {model_id} exception: {e}")
-                    import traceback
-                    print(traceback.format_exc())
-                    continue
-            
-            # Determine sleep interval from settings (minutes -> seconds)
-            settings = db.get_settings()
-            interval_minutes = max(settings.get('trading_frequency_minutes', DEFAULT_TRADING_FREQUENCY_MINUTES), 1)
-            sleep_seconds = interval_minutes * 60
-
-            # Print cycle footer
-            print(f"\n{'='*60}")
-            print(f"[SLEEP] Waiting {sleep_seconds} seconds for next cycle")
-            print(f"{'='*60}\n")
-            
-            # Sleep until next cycle
-            time.sleep(sleep_seconds)
-            
-        except Exception as e:
-            print(f"\n[CRITICAL] Trading loop error: {e}")
-            import traceback
-            print(traceback.format_exc())
-            print("[RETRY] Retrying in 60 seconds\n")
-            time.sleep(60)
-    
-    print("[INFO] Trading loop stopped")
-
 
 if __name__ == '__main__':
     # Load configuration
     config = Config()
     
-    # Print startup banner
-    print("\n" + "=" * 60)
-    print("AITradeGame - Starting...")
-    print("=" * 60)
+    # Setup logging
+    log_level = 'DEBUG' if config.DEBUG else 'INFO'
+    LoggingConfigurator.setup_logging(log_level=log_level)
+    logger = LoggingConfigurator.get_logger(__name__)
+    
+    # Log application startup
+    logger.info("=" * 60)
+    logger.info("AITradeGame - Starting...")
+    logger.info("=" * 60)
+    logger.info(LOG_MSG_APP_STARTING)
     
     # Create application
     app = create_app(config)
     
-    # Get services from app config
-    trading_service = app.config['trading_service']
-    db = app.config['db']
+    # Get services from container
+    container = app.config['container']
+    trading_service = container.trading_service
+    db = container.db
     
     # Initialize trading engines
-    print("[INFO] Initializing trading engines...")
+    logger.info("Initializing trading engines...")
     settings = db.get_settings()
     trade_fee_rate = settings.get('trading_fee_rate', DEFAULT_TRADE_FEE_RATE)
     trading_service.initialize_engines(trade_fee_rate)
+    logger.info("Trading engines initialized")
     
-    # Start auto-trading thread if enabled
+    # Create trading loop manager
+    trading_loop_manager = TradingLoopManager(trading_service, db)
+    
+    # Start auto-trading if enabled
     if config.AUTO_TRADING:
-        trading_thread = threading.Thread(
-            target=start_trading_loop,
-            args=(trading_service, db),
-            daemon=True
-        )
-        trading_thread.start()
-        print("[INFO] Auto-trading enabled")
+        trading_loop_manager.start()
+        logger.info(LOG_MSG_AUTO_TRADING_ENABLED)
     else:
-        print("[INFO] Auto-trading disabled")
+        logger.info(LOG_MSG_AUTO_TRADING_DISABLED)
     
-    # Print ready message
-    print("\n" + "=" * 60)
-    print("AITradeGame is running!")
-    print(f"Server: http://{config.HOST}:{config.PORT}")
-    print("Press Ctrl+C to stop")
-    print("=" * 60 + "\n")
+    # Log ready message
+    logger.info("=" * 60)
+    logger.info("AITradeGame is running!")
+    logger.info(f"Server: http://{config.HOST}:{config.PORT}")
+    logger.info("Press Ctrl+C to stop")
+    logger.info("=" * 60)
+    
     # Start Flask application
-    app.run(
-        debug=config.DEBUG,
-        host=config.HOST,
-        port=config.PORT,
-        use_reloader=False  # Disable reloader to prevent duplicate threads
-    )
+    try:
+        app.run(
+            debug=config.DEBUG,
+            host=config.HOST,
+            port=config.PORT,
+            use_reloader=False  # Disable reloader to prevent duplicate threads
+        )
+    finally:
+        # Graceful shutdown
+        if trading_loop_manager.is_running():
+            logger.info("Stopping trading loop...")
+            trading_loop_manager.stop()
+        container.cleanup()
+        logger.info("Application shutdown complete")

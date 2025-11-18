@@ -9,16 +9,18 @@ This module handles all trade and portfolio-related API routes including:
 - GET /api/leaderboard - Get model leaderboard
 """
 
-from flask import Blueprint, request, jsonify, current_app
+import logging
+from flask import Blueprint, request, jsonify, g
 
+logger = logging.getLogger(__name__)
 trades_bp = Blueprint('trades', __name__)
 
 
 @trades_bp.route('/api/models/<int:model_id>/portfolio', methods=['GET'])
 def get_portfolio(model_id):
     """Get portfolio for specific model"""
-    db = current_app.config['db']
-    market_service = current_app.config['market_service']
+    db = g.container.db
+    market_service = g.container.market_service
     
     # Get current prices
     prices_data = market_service.get_current_prices()
@@ -37,7 +39,7 @@ def get_portfolio(model_id):
 @trades_bp.route('/api/models/<int:model_id>/trades', methods=['GET'])
 def get_trades(model_id):
     """Get trades for specific model"""
-    db = current_app.config['db']
+    db = g.container.db
     limit = request.args.get('limit', 50, type=int)
     trades = db.get_trades(model_id, limit=limit)
     return jsonify(trades)
@@ -46,7 +48,7 @@ def get_trades(model_id):
 @trades_bp.route('/api/models/<int:model_id>/conversations', methods=['GET'])
 def get_conversations(model_id):
     """Get conversations for specific model"""
-    db = current_app.config['db']
+    db = g.container.db
     limit = request.args.get('limit', 20, type=int)
     conversations = db.get_conversations(model_id, limit=limit)
     return jsonify(conversations)
@@ -55,9 +57,9 @@ def get_conversations(model_id):
 @trades_bp.route('/api/aggregated/portfolio', methods=['GET'])
 def get_aggregated_portfolio():
     """Get aggregated portfolio data across all models"""
-    db = current_app.config['db']
-    portfolio_service = current_app.config['portfolio_service']
-    market_service = current_app.config['market_service']
+    db = g.container.db
+    portfolio_service = g.container.portfolio_service
+    market_service = g.container.market_service
     
     # Get current prices
     prices_data = market_service.get_current_prices()
@@ -72,7 +74,7 @@ def get_aggregated_portfolio():
 @trades_bp.route('/api/models/chart-data', methods=['GET'])
 def get_models_chart_data():
     """Get chart data for all models"""
-    db = current_app.config['db']
+    db = g.container.db
     limit = request.args.get('limit', 100, type=int)
     chart_data = db.get_multi_model_chart_data(limit=limit)
     return jsonify(chart_data)
@@ -81,8 +83,8 @@ def get_models_chart_data():
 @trades_bp.route('/api/leaderboard', methods=['GET'])
 def get_leaderboard():
     """Get model leaderboard sorted by returns"""
-    portfolio_service = current_app.config['portfolio_service']
-    market_service = current_app.config['market_service']
+    portfolio_service = g.container.portfolio_service
+    market_service = g.container.market_service
     
     # Get current prices
     prices_data = market_service.get_current_prices()

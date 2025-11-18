@@ -2,8 +2,14 @@
 AI Trader module - LLM-based trading decision system
 """
 import json
+import logging
 from typing import Dict
 from openai import OpenAI, APIConnectionError, APIError
+
+from backend.config.constants import (
+    ERROR_MSG_API_REQUEST_FAILED,
+    ERROR_MSG_CONNECTION_ERROR,
+)
 
 
 class AITrader:
@@ -21,6 +27,7 @@ class AITrader:
         self.api_key = api_key
         self.api_url = api_url
         self.model_name = model_name
+        self._logger = logging.getLogger(__name__)
     
     def make_decision(self, market_state: Dict, portfolio: Dict, 
                      account_info: Dict) -> Dict:
@@ -141,22 +148,24 @@ Analyze and output JSON only.
             return response.choices[0].message.content
             
         except APIConnectionError as e:
-            error_msg = f"API connection failed: {str(e)}"
-            print(f"[ERROR] {error_msg}")
+            error_msg = ERROR_MSG_CONNECTION_ERROR
+            self._logger.error(f"{error_msg}: {str(e)}", exc_info=True)
             raise Exception(error_msg)
         except APIError as e:
-            error_msg = f"API error ({e.status_code}): {e.message}"
-            print(f"[ERROR] {error_msg}")
+            error_msg = ERROR_MSG_API_REQUEST_FAILED.format(detail=f"{e.status_code}: {e.message}")
+            self._logger.error(error_msg, exc_info=True)
             raise Exception(error_msg)
         except Exception as e:
             error_msg = f"LLM call failed: {str(e)}"
-            print(f"[ERROR] {error_msg}")
-            import traceback
-            print(traceback.format_exc())
+            self._logger.error(error_msg, exc_info=True)
             raise Exception(error_msg)
     
     def _parse_response(self, response: str) -> Dict:
-        """Parse LLM response to extract trading decisions"""
+        """Parse LLM response to extract trading decisions
+        
+        Raises:
+            ValueError: If response cannot be parsed as valid JSON
+        """
         response = response.strip()
         
         if '```json' in response:
@@ -166,8 +175,16 @@ Analyze and output JSON only.
         
         try:
             decisions = json.loads(response.strip())
+            if not isinstance(decisions, dict):
+                raise ValueError(f"Expected dict, got {type(decisions).__name__}")
             return decisions
         except json.JSONDecodeError as e:
-            print(f"[ERROR] JSON parse failed: {e}")
-            print(f"[DATA] Response:\n{response}")
-            return {}
+            self._logger.error(
+                f"Failed to parse LLM response as JSON: {e}, "
+                f"response_length={len(response)}, "
+                f"response_preview={response[:200]}"
+            )
+            raise ValueError(f"Invalid JSON response from LLM: {e}") from e
+        except ValueError as e:
+            self._logger.error(f"Invalid response format: {e}")
+            raise

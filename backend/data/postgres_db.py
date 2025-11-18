@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
+import logging
 
 import psycopg
+from psycopg import sql
 from psycopg.rows import dict_row
 
 from backend.config.constants import (
@@ -14,15 +17,26 @@ from backend.config.constants import (
     DEFAULT_TRADING_FREQUENCY_MINUTES,
 )
 from backend.data.database import DatabaseInterface
+from backend.utils.encryption import encrypt_api_key, decrypt_api_key
 
 
 class PostgreSQLDatabase(DatabaseInterface):
     """PostgreSQL implementation of DatabaseInterface."""
 
+    _DEFAULT_INSTRUMENTS = {
+        "BTC": "bitcoin",
+        "ETH": "ethereum",
+        "SOL": "solana",
+        "BNB": "binancecoin",
+        "XRP": "ripple",
+        "DOGE": "dogecoin",
+    }
+
     def __init__(self, dsn: str):
         if not dsn:
             raise ValueError("POSTGRES_URI is required when using PostgreSQL database")
         self.dsn = dsn
+        self._logger = logging.getLogger(__name__)
 
     def get_connection(self):
         """Create a new database connection."""
@@ -169,14 +183,114 @@ class PostgreSQLDatabase(DatabaseInterface):
                 ),
             )
 
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS market_instruments (
+                id SERIAL PRIMARY KEY,
+                symbol TEXT NOT NULL UNIQUE,
+                source_symbol TEXT NOT NULL,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS market_prices (
+                coin TEXT NOT NULL,
+                resolution INTEGER NOT NULL,
+                ts TIMESTAMPTZ NOT NULL,
+                open DOUBLE PRECISION,
+                high DOUBLE PRECISION,
+                low DOUBLE PRECISION,
+                close DOUBLE PRECISION,
+                volume DOUBLE PRECISION DEFAULT 0,
+                source TEXT NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (coin, resolution, ts)
+            ) PARTITION BY RANGE (ts)
+            """
+        )
+
+        cursor.execute(
+            """
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_indexes WHERE indexname = 'idx_market_prices_brin_ts'
+                ) THEN
+                    CREATE INDEX idx_market_prices_brin_ts
+                    ON market_prices USING BRIN (ts);
+                END IF;
+            END $$;
+            """
+        )
+
+        self._seed_market_instruments(cursor)
+        self._ensure_market_prices_partition(cursor, datetime.now(timezone.utc))
+
         conn.commit()
         conn.close()
+
+    def _seed_market_instruments(self, cursor) -> None:
+        for symbol, source_symbol in self._DEFAULT_INSTRUMENTS.items():
+            cursor.execute(
+                """
+                INSERT INTO market_instruments (symbol, source_symbol)
+                VALUES (%s, %s)
+                ON CONFLICT (symbol) DO UPDATE SET
+                    source_symbol = EXCLUDED.source_symbol,
+                    is_active = TRUE
+                """,
+                (symbol, source_symbol),
+            )
+
+    def _normalize_timestamp(self, ts: datetime) -> datetime:
+        if ts.tzinfo is None:
+            return ts.replace(tzinfo=timezone.utc)
+        return ts.astimezone(timezone.utc)
+
+    def _partition_anchor(self, ts: datetime) -> datetime:
+        normalized = self._normalize_timestamp(ts)
+        return normalized.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    def _ensure_market_prices_partition(self, cursor, ts: datetime) -> None:
+        anchor = self._partition_anchor(ts)
+        if anchor.month == 12:
+            partition_end = anchor.replace(year=anchor.year + 1, month=1)
+        else:
+            partition_end = anchor.replace(month=anchor.month + 1)
+        partition_name = f"market_prices_{anchor.year}_{anchor.month:02d}"
+        cursor.execute("SELECT to_regclass(%s) AS relname", (partition_name,))
+        result = cursor.fetchone()
+        if result and result.get("relname"):
+            return
+        cursor.execute(
+            sql.SQL(
+                "CREATE TABLE {} PARTITION OF market_prices "
+                "FOR VALUES FROM ({}) TO ({})"
+            ).format(
+                sql.Identifier(partition_name),
+                sql.Literal(anchor),
+                sql.Literal(partition_end),
+            )
+        )
+        cursor.execute(
+            sql.SQL(
+                "CREATE INDEX IF NOT EXISTS {} ON {} (coin, resolution, ts DESC)"
+            ).format(
+                sql.Identifier(f"{partition_name}_coin_res_ts_idx"),
+                sql.Identifier(partition_name),
+            )
+        )
 
     # ------------------------------------------------------------------
     # Provider management
     # ------------------------------------------------------------------
 
     def add_provider(self, name: str, api_url: str, api_key: str, models: str = "") -> int:
+        encrypted_key = encrypt_api_key(api_key)
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute(
@@ -185,11 +299,12 @@ class PostgreSQLDatabase(DatabaseInterface):
             VALUES (%s, %s, %s, %s)
             RETURNING id
             """,
-            (name, api_url, api_key, models),
+            (name, api_url, encrypted_key, models),
         )
         provider_id = cursor.fetchone()["id"]
         conn.commit()
         conn.close()
+        self._logger.info("Added provider '%s' with encrypted API key", name)
         return provider_id
 
     def get_provider(self, provider_id: int) -> Optional[Dict]:
@@ -198,7 +313,11 @@ class PostgreSQLDatabase(DatabaseInterface):
         cursor.execute("SELECT * FROM providers WHERE id = %s", (provider_id,))
         row = cursor.fetchone()
         conn.close()
-        return dict(row) if row else None
+        if row:
+            provider = dict(row)
+            provider["api_key"] = decrypt_api_key(provider["api_key"])
+            return provider
+        return None
 
     def get_all_providers(self) -> List[Dict]:
         conn = self.get_connection()
@@ -206,7 +325,17 @@ class PostgreSQLDatabase(DatabaseInterface):
         cursor.execute("SELECT * FROM providers ORDER BY created_at DESC")
         rows = cursor.fetchall()
         conn.close()
-        return [dict(row) for row in rows]
+        providers: List[Dict] = []
+        for row in rows:
+            provider = dict(row)
+            encrypted_key = provider["api_key"]
+            try:
+                decrypted = decrypt_api_key(encrypted_key)
+                provider["api_key"] = decrypted[:8] + "..." if len(decrypted) > 8 else "***"
+            except Exception:
+                provider["api_key"] = "***"
+            providers.append(provider)
+        return providers
 
     def delete_provider(self, provider_id: int) -> None:
         conn = self.get_connection()
@@ -225,13 +354,14 @@ class PostgreSQLDatabase(DatabaseInterface):
     ) -> None:
         conn = self.get_connection()
         cursor = conn.cursor()
+        encrypted_key = encrypt_api_key(api_key)
         cursor.execute(
             """
             UPDATE providers
             SET name = %s, api_url = %s, api_key = %s, models = %s
             WHERE id = %s
             """,
-            (name, api_url, api_key, models, provider_id),
+            (name, api_url, encrypted_key, models, provider_id),
         )
         conn.commit()
         conn.close()
@@ -598,6 +728,108 @@ class PostgreSQLDatabase(DatabaseInterface):
 
         conn.close()
         return chart_data
+
+    # ------------------------------------------------------------------
+    # Market history
+    # ------------------------------------------------------------------
+
+    def record_market_prices(self, rows: List[Dict]) -> None:
+        if not rows:
+            return
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        try:
+            partitions = set()
+            normalized_rows = []
+            for row in rows:
+                ts = self._normalize_timestamp(row["timestamp"])
+                partitions.add(self._partition_anchor(ts))
+                normalized_rows.append(
+                    (
+                        row["coin"].upper(),
+                        int(row["resolution"]),
+                        ts,
+                        row.get("open"),
+                        row.get("high"),
+                        row.get("low"),
+                        row.get("close"),
+                        float(row.get("volume", 0) or 0),
+                        row.get("source", "binance"),
+                    )
+                )
+            for anchor in partitions:
+                self._ensure_market_prices_partition(cursor, anchor)
+            cursor.executemany(
+                """
+                INSERT INTO market_prices (
+                    coin, resolution, ts, open, high, low, close, volume, source
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (coin, resolution, ts) DO UPDATE SET
+                    open = EXCLUDED.open,
+                    high = EXCLUDED.high,
+                    low = EXCLUDED.low,
+                    close = EXCLUDED.close,
+                    volume = EXCLUDED.volume,
+                    source = EXCLUDED.source,
+                    created_at = CURRENT_TIMESTAMP
+                """,
+                normalized_rows,
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    def get_market_history(
+        self,
+        coin: str,
+        resolution: int,
+        limit: int = 500,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+    ) -> List[Dict]:
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        try:
+            clauses = ["WHERE coin = %s", "AND resolution = %s"]
+            params: List = [coin.upper(), int(resolution)]
+            if start:
+                clauses.append("AND ts >= %s")
+                params.append(self._normalize_timestamp(start))
+            if end:
+                clauses.append("AND ts <= %s")
+                params.append(self._normalize_timestamp(end))
+            clauses.append("ORDER BY ts DESC LIMIT %s")
+            params.append(limit)
+            query = " ".join(
+                [
+                    "SELECT coin, resolution, ts, open, high, low, close, volume, source",
+                    "FROM market_prices",
+                    *clauses,
+                ]
+            )
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            history: List[Dict] = [
+                {
+                    "coin": row["coin"],
+                    "resolution": row["resolution"],
+                    "timestamp": row["ts"].isoformat(),
+                    "open": row["open"],
+                    "high": row["high"],
+                    "low": row["low"],
+                    "close": row["close"],
+                    "volume": row["volume"],
+                    "source": row["source"],
+                }
+                for row in rows
+            ]
+            history.reverse()
+            return history
+        finally:
+            conn.close()
 
     # ------------------------------------------------------------------
     # Settings management

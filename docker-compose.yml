@@ -22,13 +22,33 @@ services:
     environment:
       HOST: 0.0.0.0
       PORT: 5000
-      DATABASE_TYPE: postgresql
       POSTGRES_URI: postgresql://aitrade:aitrade@postgres:5432/aitrade
       NEXT_PUBLIC_ENV: development
+      MARKET_HISTORY_ENABLED: "False"  # 独立采集服务承担历史行情持久化
     depends_on:
       - postgres
     ports:
       - "5000:5000"
+    restart: unless-stopped
+
+  market-collector:
+    build:
+      context: .
+      target: backend
+    command: python -m backend.services.market_history_server
+    working_dir: /app
+    environment:
+      HOST: 0.0.0.0
+      COLLECTOR_PORT: 5100
+      POSTGRES_URI: postgresql://aitrade:aitrade@postgres:5432/aitrade
+      MARKET_HISTORY_ENABLED: "True"
+      MARKET_HISTORY_INTERVAL: 60
+      MARKET_HISTORY_RESOLUTION: 60
+      TRADING_COINS: BTC,ETH,SOL,BNB,XRP,DOGE
+    depends_on:
+      - postgres
+    ports:
+      - "5100:5100"
     restart: unless-stopped
 
   frontend:

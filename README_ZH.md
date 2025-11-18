@@ -70,7 +70,7 @@ docker run -d -p 5000:5000 -v $(pwd)/data:/app/data aitradegame
 # 访问应用程序 http://localhost:5000
 ```
 
-系统会自动创建 data 目录来存储 SQLite 数据库。要停止容器，请运行 `docker-compose down`。
+Docker Compose 会自动启动 PostgreSQL，并通过 `postgres_data` 卷持久化数据。如果单独运行后端容器，请先确保 `POSTGRES_URI` 指向可用的 PostgreSQL 实例。停止服务可执行 `docker-compose down`。
 
 ## 配置
 
@@ -95,6 +95,24 @@ docker run -d -p 5000:5000 -v $(pwd)/data:/app/data aitradegame
 - 交易费率：每笔交易的手续费率（默认0.1%）
 - 市场刷新间隔：市场价格的刷新频率（以秒为单位）
 - 投资组合刷新间隔：投资组合与图表的刷新频率（以秒为单位）
+
+### 环境变量
+- `POSTGRES_URI`：PostgreSQL 连接 URI（默认 `postgresql://aitrade:aitrade@localhost:5432/aitrade`）
+- `AUTO_TRADING`：是否启用自动交易（默认 True）
+- `MARKET_CACHE_DURATION`：市场数据缓存时间（秒，默认 5）
+- `MARKET_API_URL`：外部市场数据 API 地址（默认 CoinGecko）
+- `MARKET_HISTORY_ENABLED`：是否持久化历史行情（默认 True）
+- `MARKET_HISTORY_INTERVAL`：采样间隔（秒，默认 60）
+- `MARKET_HISTORY_RESOLUTION`：K线分辨率（秒，默认 60）
+- `MARKET_HISTORY_MAX_POINTS`：历史接口返回的最大记录数（默认 500，硬上限 2000）
+- `MARKET_HISTORY_CACHE_TTL`：历史接口缓存时间（秒，默认 60，后续可插入 Redis）
+- `TRADING_COINS`：交易币种列表（默认 BTC,ETH,SOL,BNB,XRP,DOGE）
+- `NEXT_PUBLIC_MARKET_API_BASE_URL`：前端访问独立行情服务的地址（默认回退到后端地址）
+
+### 市场数据 API
+- `GET /api/market/prices`：返回配置币种的最新价格与 24h 涨跌幅
+- `GET /api/market/history`：返回持久化的 OHLC 数据，支持 `coin`（必填）、`resolution`、`limit`、`start`、`end` 等参数
+- **独立行情服务**：docker-compose 会启动 `market-collector` 服务（端口 5100）负责行情采集与历史 API，主后端重启也不会影响行情写库。
 
 ## 支持的 AI 模型
 
@@ -123,7 +141,7 @@ pnpm dev
 
 ## 隐私与安全
 
-所有数据都存储在可执行文件同一目录中的 AITradeGame.db SQLite 文件中。除了您指定的 AI API 端点外，不联系任何外部服务器。不需要用户账户或登录，一切都在本地运行。
+所有数据都保存在 `POSTGRES_URI` 指定的 PostgreSQL 数据库中（在 docker-compose 模式下对应 `postgres_data` 卷）。除了您配置的 AI API 端点外，应用不会访问任何外部服务器，无需账号或登录，全部在本地运行。
 
 ## 开发
 

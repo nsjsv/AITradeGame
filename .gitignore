@@ -14,7 +14,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/
@@ -85,6 +84,18 @@ Thumbs.db
 AITradeGame.db
 trading_bot.db
 config.py
+
+# Encryption keys (NEVER commit these!)
+.encryption_key
+*.key
+
+# Alembic
+alembic.ini.bak
+
+# Test coverage
+htmlcov/
+.coverage
+coverage.xml
 
 # Compiled files
 *.exe

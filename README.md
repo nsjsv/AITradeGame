@@ -70,7 +70,7 @@ docker run -d -p 5000:5000 -v $(pwd)/data:/app/data aitradegame
 # Access the application at http://localhost:5000
 ```
 
-The data directory will be created automatically to store the SQLite database. To stop the container, run `docker-compose down`.
+The docker-compose stack provisions PostgreSQL automatically and stores data in the `postgres_data` volume. If you run the backend container manually, make sure `POSTGRES_URI` points to a reachable PostgreSQL instance before starting the app. To stop the compose stack, run `docker-compose down`.
 
 ## Project Structure
 
@@ -110,11 +110,18 @@ Key configuration options:
 - `DEBUG`: Enable debug mode (default: False)
 - `HOST`: Server host (default: 0.0.0.0)
 - `PORT`: Server port (default: 5000)
-- `DATABASE_TYPE`: Database type - sqlite or postgresql (default: sqlite)
-- `SQLITE_PATH`: SQLite database file path (default: AITradeGame.db)
-- `POSTGRES_URI`: PostgreSQL connection URI (for future migration)
+- `POSTGRES_URI`: PostgreSQL connection URI (default: `postgresql://aitrade:aitrade@localhost:5432/aitrade`)
 - `AUTO_TRADING`: Enable automatic trading (default: True)
 - `LOG_LEVEL`: Logging level (default: INFO)
+- `MARKET_CACHE_DURATION`: Market data cache duration in seconds (default: 5)
+- `MARKET_API_URL`: External market data API base URL (default: CoinGecko)
+- `MARKET_HISTORY_ENABLED`: Toggle background market snapshot persistence (default: True)
+- `MARKET_HISTORY_INTERVAL`: Snapshot interval in seconds (default: 60)
+- `MARKET_HISTORY_RESOLUTION`: Resolution bucket in seconds for stored candles (default: 60)
+- `MARKET_HISTORY_MAX_POINTS`: Maximum records returned from history API (default: 500, capped at 2000)
+- `MARKET_HISTORY_CACHE_TTL`: Cache TTL for history responses (default: 60; placeholder for future Redis integration)
+- `TRADING_COINS`: Comma-separated list of tradable coins (default: BTC,ETH,SOL,BNB,XRP,DOGE)
+- `NEXT_PUBLIC_MARKET_API_BASE_URL`: Frontend override for the market collector service (default: falls back to backend API URL)
 
 Trading frequency, fee rate, and refresh intervals are now configured inside the in-app **Settings** dialog instead of environment variables.
 
@@ -139,6 +146,15 @@ Click the "Settings" button to configure:
 - Trading Fee Rate: Commission rate per trade (default 0.1%)
 - Market Refresh Interval: How often market data updates (seconds)
 - Portfolio Refresh Interval: How often portfolio data refreshes (seconds)
+
+### Market Data APIs
+- `GET /api/market/prices`: Returns the latest price and 24h change for the configured trading universe.
+- `GET /api/market/history`: Returns persisted OHLC snapshots. Query params:
+  - `coin` (required): Symbol such as `BTC`
+  - `resolution` (optional): Bucket size in seconds (default from config)
+  - `limit` (optional): Number of points (max 2000, default 500)
+  - `start` / `end` (optional): ISO8601 timestamps to bound the query
+- **Standalone Collector**: When running via docker-compose, a dedicated `market-collector` service (port 5100) handles price persistence and exposes `/api/health`, `/api/market/prices`, `/api/market/history` so price tracking continues even if the main backend restarts.
 
 ## Supported AI Models
 
@@ -167,7 +183,7 @@ Add AI model configuration through the web interface. The system automatically b
 
 ## Privacy and Security
 
-All data is stored in the AITradeGame.db SQLite file in the same directory as the executable. No external servers are contacted except your specified AI API endpoints. No user accounts or login required - everything runs locally.
+All data is stored in PostgreSQL (using the database defined by `POSTGRES_URI`). When running under docker-compose, the `postgres_data` volume keeps the data on your machine. No external servers are contacted except your specified AI API endpoints. No user accounts or login required - everything runs locally.
 
 ## Development
 
@@ -186,6 +202,27 @@ python main.py
 ```
 
 The backend API will be available at http://localhost:5000
+
+### Running Tests
+
+Run all tests with coverage:
+```bash
+pytest
+```
+
+Or use the test script:
+```bash
+./scripts/run_tests.sh
+```
+
+See `DEVELOPMENT.md` for detailed development guide.
+
+### Security Features
+
+- **API Key Encryption**: All API keys are encrypted at rest using Fernet symmetric encryption
+- **Error Handling**: Comprehensive error handling with custom exception classes
+- **Schema Bootstrap**: Database tables are created automatically when the app starts
+- **Input Validation**: Strict validation on all API endpoints
 
 ### Frontend Development
 

@@ -190,12 +190,30 @@ export function TradePanel() {
 ## 错误处理
 
 ```python
-# 明确的异常类型
+# ❌ 错误：无意义的 catch-log-raise
 try:
     result = risky_operation()
 except SpecificError as e:
     logger.error(f"操作失败: {e}")
-    raise
+    raise  # 只打日志又抛出，毫无意义
+
+# ✅ 正确：要么处理，要么不碰
+# 方案 1：真正处理异常
+try:
+    result = risky_operation()
+except SpecificError as e:
+    logger.error(f"Trade {trade_id} failed: {e}, rolling back")
+    rollback_transaction()
+    return default_value
+
+# 方案 2：转换异常类型
+try:
+    result = external_api_call()
+except ExternalAPIError as e:
+    raise InternalServiceError(f"External service failed: {e}") from e
+
+# 方案 3：不需要处理就别碰
+result = risky_operation()  # 让异常自然向上传播
 ```
 
 ## 日志规范
@@ -205,12 +223,30 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# 使用合适的日志级别
+# ❌ 错误：没有上下文的垃圾日志
 logger.debug("调试信息")
 logger.info("正常流程")
-logger.warning("警告信息")
-logger.error("错误信息")
-logger.critical("严重错误")
+
+# ✅ 正确：包含关键上下文信息
+logger.debug(
+    f"Processing trade {trade_id} for user {user_id}, "
+    f"symbol={symbol}, amount={amount}, price={price}"
+)
+logger.info(
+    f"Trade executed: id={trade_id}, {symbol} {side} "
+    f"{volume}@{price}, latency={latency_ms}ms"
+)
+logger.warning(
+    f"Position limit approaching: user={user_id}, "
+    f"current={current_position}, limit={max_position}"
+)
+logger.error(
+    f"Order failed: order_id={order_id}, reason={error_msg}, "
+    f"retry_count={retry_count}"
+)
+
+# 日志应该回答：谁、什么时候、做了什么、结果如何
+# 出问题时能直接定位，不需要加额外日志重现
 ```
 
 ## 数据库
@@ -223,16 +259,48 @@ logger.critical("严重错误")
 ## API 设计
 
 ### 后端 API
-- RESTful 风格
-- 统一响应格式：`{"success": bool, "data": any, "error": str}`
-- 使用 HTTP 状态码
+- RESTful 风格，充分利用 HTTP 状态码
+- **不要在 body 里重复 success 字段**，HTTP 状态码已经表达了成功/失败
+- 响应格式：
+  ```python
+  # ✅ 成功响应 (200/201)
+  {
+    "data": {...},
+    "meta": {"page": 1, "total": 100}  # 可选的元信息
+  }
+  
+  # ✅ 错误响应 (400/500)
+  {
+    "error": {
+      "code": "INVALID_TRADE",
+      "message": "Insufficient balance",
+      "details": {"required": 1000, "available": 500}
+    }
+  }
+  
+  # ❌ 不要这样做
+  {
+    "success": true,  # 多余！HTTP 200 已经表示成功
+    "data": {...}
+  }
+  ```
 - WebSocket 用于实时数据推送
 - CORS 配置允许前端跨域
 
 ### 前端 API 调用
 - 使用 fetch 或 axios 封装在 `lib/api.ts`
 - 请求拦截器添加 token
-- 响应拦截器处理错误
+- 响应拦截器根据 HTTP 状态码处理错误
+  ```typescript
+  // ✅ 正确：只检查 HTTP 状态
+  if (!response.ok) {
+    throw new ApiError(response.status, await response.json())
+  }
+  return response.json()
+  
+  // ❌ 错误：重复检查
+  if (response.ok && response.data.success) { ... }
+  ```
 - TypeScript 类型定义在 `lib/types.ts`
 - 使用 React Query/SWR 管理服务端状态
 
@@ -242,13 +310,46 @@ logger.critical("严重错误")
 - 单元测试覆盖核心逻辑
 - 测试文件命名：`test_*.py`
 - 使用 pytest
-- Mock 外部依赖
+- **依赖注入而非 Mock**：代码应该设计为可测试的
+  ```python
+  # ❌ 难以测试：硬编码依赖
+  class TradingEngine:
+      def execute(self):
+          data = requests.get("https://api.example.com")  # 无法 mock
+  
+  # ✅ 易于测试：依赖注入
+  class TradingEngine:
+      def __init__(self, market_data_provider: MarketDataProvider):
+          self.provider = provider
+      
+      def execute(self):
+          data = self.provider.get_data()  # 测试时注入 FakeProvider
+  
+  # 测试代码
+  def test_execute():
+      fake_provider = FakeMarketDataProvider(mock_data)
+      engine = TradingEngine(fake_provider)
+      result = engine.execute()
+      assert result.success
+  ```
+- 如果代码难以测试，说明设计有问题，不是测试的问题
 
 ### 前端
 - 组件测试使用 Jest + React Testing Library
 - E2E 测试使用 Playwright
 - 测试文件命名：`*.test.tsx` 或 `*.spec.tsx`
-- Mock API 调用
+- 使用 MSW (Mock Service Worker) 模拟 API，而非 mock fetch
+  ```typescript
+  // ✅ 使用 MSW 模拟整个 API
+  import { rest } from 'msw'
+  import { setupServer } from 'msw/node'
+  
+  const server = setupServer(
+    rest.get('/api/trades', (req, res, ctx) => {
+      return res(ctx.json({ data: mockTrades }))
+    })
+  )
+  ```
 
 ## 文档
 

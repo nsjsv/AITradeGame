@@ -5,15 +5,23 @@ This module handles all system-related API routes including:
 - PUT /api/settings - Update system settings
 - GET /api/version - Get version information
 - GET /api/check-update - Check for updates
+- GET /api/health - Lightweight health check
 """
 
 import re
-from flask import Blueprint, request, jsonify, current_app
+import logging
+from datetime import datetime, timezone
+from flask import Blueprint, request, jsonify, g
 from backend.config.constants import (
     DEFAULT_TRADE_FEE_RATE,
     DEFAULT_MARKET_REFRESH_INTERVAL,
     DEFAULT_PORTFOLIO_REFRESH_INTERVAL,
     DEFAULT_TRADING_FREQUENCY_MINUTES,
+    SUCCESS_MSG_SETTINGS_UPDATED,
+    ERROR_MSG_UPDATE_SETTINGS_FAILED,
+    INFO_MSG_GITHUB_API_ERROR,
+    WARN_MSG_UPDATE_CHECK_FAILED,
+    WARN_MSG_NETWORK_ERROR,
 )
 from backend.utils.version import (
     __version__,
@@ -23,26 +31,29 @@ from backend.utils.version import (
     LATEST_RELEASE_URL
 )
 
+logger = logging.getLogger(__name__)
 system_bp = Blueprint('system', __name__, url_prefix='/api')
 
 
 @system_bp.route('/settings', methods=['GET'])
 def get_settings():
     """Get system settings"""
-    db = current_app.config['db']
+    db = g.container.db
     
     try:
         settings = db.get_settings()
         return jsonify(settings)
     except Exception as e:
+        logger.error(f"Failed to get settings: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 
 @system_bp.route('/config', methods=['GET'])
 def get_config():
     """Get frontend configuration"""
+    from flask import current_app
     config = current_app.config['app_config']
-    db = current_app.config['db']
+    db = g.container.db
     settings = db.get_settings()
     
     try:
@@ -53,13 +64,14 @@ def get_config():
             'trade_fee_rate': settings.get('trading_fee_rate', DEFAULT_TRADE_FEE_RATE)
         })
     except Exception as e:
+        logger.error(f"Failed to get config: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 
 @system_bp.route('/settings', methods=['PUT'])
 def update_settings():
     """Update system settings"""
-    db = current_app.config['db']
+    db = g.container.db
     
     try:
         data = request.json or {}
@@ -85,13 +97,14 @@ def update_settings():
         )
 
         if success:
-            trading_service = current_app.config.get('trading_service')
+            trading_service = g.container.trading_service
             if trading_service:
                 trading_service.update_trade_fee_rate(trading_fee_rate)
-            return jsonify({'success': True, 'message': 'Settings updated successfully'})
+            return jsonify({'message': SUCCESS_MSG_SETTINGS_UPDATED})
         else:
-            return jsonify({'success': False, 'error': 'Failed to update settings'}), 500
+            return jsonify({'error': ERROR_MSG_UPDATE_SETTINGS_FAILED}), 500
     except Exception as e:
+        logger.error(f"{ERROR_MSG_UPDATE_SETTINGS_FAILED}: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 
@@ -147,23 +160,51 @@ def check_update():
                 return jsonify({
                     'update_available': False,
                     'current_version': __version__,
-                    'error': 'Could not check for updates'
+                    'error': WARN_MSG_UPDATE_CHECK_FAILED
                 })
         except Exception as e:
-            print(f"[WARN] GitHub API error: {e}")
+            logger.warning(INFO_MSG_GITHUB_API_ERROR.format(error=str(e)))
             return jsonify({
                 'update_available': False,
                 'current_version': __version__,
-                'error': 'Network error checking updates'
+                'error': WARN_MSG_NETWORK_ERROR
             })
 
     except Exception as e:
-        print(f"[ERROR] Check update failed: {e}")
+        logger.error(f"Check update failed: {e}", exc_info=True)
         return jsonify({
             'update_available': False,
             'current_version': __version__,
             'error': str(e)
         }), 500
+
+
+@system_bp.route('/health', methods=['GET'])
+def health_check():
+    """Lightweight health check for frontend status indicator."""
+    timestamp = datetime.now(timezone.utc).isoformat()
+    try:
+        db = g.container.db
+        conn = db.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+        finally:
+            conn.close()
+        return jsonify({
+            'status': 'ok',
+            'database': 'ok',
+            'timestamp': timestamp
+        })
+    except Exception as exc:
+        logger.error(f"Health check failed: {exc}")
+        return jsonify({
+            'status': 'error',
+            'database': 'error',
+            'timestamp': timestamp,
+            'message': str(exc)
+        }), 503
 
 
 def compare_versions(version1, version2):

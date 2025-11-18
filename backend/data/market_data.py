@@ -3,21 +3,30 @@ Market data module - Binance API integration
 """
 import requests
 import time
+import logging
 from typing import Dict, List
+
+from backend.config.constants import (
+    BINANCE_BASE_URL,
+    COINGECKO_BASE_URL,
+    MARKET_DATA_CACHE_TTL,
+    ERROR_MSG_API_REQUEST_FAILED,
+)
 
 
 class MarketDataFetcher:
     """Fetch real-time market data from Binance API"""
     
-    def __init__(self, api_url: str = None, cache_duration: int = 5):
+    def __init__(self, api_url: str = None, cache_duration: int = MARKET_DATA_CACHE_TTL):
         """Initialize market data fetcher
         
         Args:
             api_url: CoinGecko API base URL (optional)
-            cache_duration: Cache duration in seconds (default: 5)
+            cache_duration: Cache duration in seconds (default: from constants)
         """
-        self.binance_base_url = "https://api.binance.com/api/v3"
-        self.coingecko_base_url = api_url or "https://api.coingecko.com/api/v3"
+        self.binance_base_url = BINANCE_BASE_URL
+        self.coingecko_base_url = api_url or COINGECKO_BASE_URL
+        self._logger = logging.getLogger(__name__)
         
         # Binance symbol mapping
         self.binance_symbols = {
@@ -52,6 +61,7 @@ class MarketDataFetcher:
                 return self._cache[cache_key]
         
         prices = {}
+        snapshot_ts = int(time.time())
         
         try:
             # Batch fetch Binance 24h ticker data
@@ -77,7 +87,10 @@ class MarketDataFetcher:
                         if binance_symbol == symbol:
                             prices[coin] = {
                                 'price': float(item['lastPrice']),
-                                'change_24h': float(item['priceChangePercent'])
+                                'change_24h': float(item['priceChangePercent']),
+                                'volume': float(item.get('volume', 0)),
+                                'source': 'binance',
+                                'timestamp': snapshot_ts
                             }
                             break
             
@@ -85,16 +98,19 @@ class MarketDataFetcher:
             self._cache[cache_key] = prices
             self._cache_time[cache_key] = time.time()
             
+            if prices:
+                return prices
             return prices
             
         except Exception as e:
-            print(f"[ERROR] Binance API failed: {e}")
+            self._logger.error(f"Binance API failed: {e}")
             # Fallback to CoinGecko
             return self._get_prices_from_coingecko(coins)
     
     def _get_prices_from_coingecko(self, coins: List[str]) -> Dict[str, float]:
         """Fallback: Fetch prices from CoinGecko"""
         try:
+            snapshot_ts = int(time.time())
             coin_ids = [self.coingecko_mapping.get(coin, coin.lower()) for coin in coins]
             
             response = requests.get(
@@ -115,12 +131,15 @@ class MarketDataFetcher:
                 if coin_id in data:
                     prices[coin] = {
                         'price': data[coin_id]['usd'],
-                        'change_24h': data[coin_id].get('usd_24h_change', 0)
+                        'change_24h': data[coin_id].get('usd_24h_change', 0),
+                        'volume': 0,
+                        'source': 'coingecko',
+                        'timestamp': snapshot_ts
                     }
             
             return prices
         except Exception as e:
-            print(f"[ERROR] CoinGecko fallback also failed: {e}")
+            self._logger.error(f"CoinGecko fallback also failed: {e}")
             return {coin: {'price': 0, 'change_24h': 0} for coin in coins}
     
     def get_market_data(self, coin: str) -> Dict:
@@ -148,7 +167,7 @@ class MarketDataFetcher:
                 'low_24h': market_data.get('low_24h', {}).get('usd', 0),
             }
         except Exception as e:
-            print(f"[ERROR] Failed to get market data for {coin}: {e}")
+            self._logger.error(f"Failed to get market data for {coin}: {e}")
             return {}
     
     def get_historical_prices(self, coin: str, days: int = 7) -> List[Dict]:
@@ -173,7 +192,7 @@ class MarketDataFetcher:
             
             return prices
         except Exception as e:
-            print(f"[ERROR] Failed to get historical prices for {coin}: {e}")
+            self._logger.error(f"Failed to get historical prices for {coin}: {e}")
             return []
     
     def calculate_technical_indicators(self, coin: str) -> Dict:

@@ -35,6 +35,11 @@ interface AppState {
   // 暗黑模式（由 next-themes 管理，这里仅作为备份）
   isDarkMode: boolean
 
+  // 后端状态
+  backendOnline: boolean
+  backendLastChecked: number | null
+  backendError: string | null
+
   // Actions
   setSelectedModel: (id: number | null) => void
   setAggregatedView: (isAggregated: boolean) => void
@@ -46,6 +51,7 @@ interface AppState {
   setSidebarOpen: (isOpen: boolean) => void
   toggleSidebar: () => void
   setDarkMode: (isDark: boolean) => void
+  setBackendStatus: (online: boolean, error?: string | null) => void
   reset: () => void
 }
 
@@ -63,6 +69,9 @@ const initialState = {
   isRefreshing: false,
   isSidebarOpen: true,
   isDarkMode: false,
+  backendOnline: true,
+  backendLastChecked: null,
+  backendError: null,
 }
 
 // ============================================================================
@@ -122,6 +131,18 @@ export const useAppStore = create<AppState>()(
         // 设置暗黑模式
         setDarkMode: (isDark) =>
           set({ isDarkMode: isDark }, false, 'setDarkMode'),
+
+        // 设置后端状态
+        setBackendStatus: (online, error = null) =>
+          set(
+            {
+              backendOnline: online,
+              backendError: error ?? null,
+              backendLastChecked: Date.now(),
+            },
+            false,
+            'setBackendStatus'
+          ),
 
         // 重置状态
         reset: () => set(initialState, false, 'reset'),

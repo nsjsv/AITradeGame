@@ -7,15 +7,36 @@ This module handles all Provider-related API routes including:
 - POST /api/providers/models - Fetch available models from provider
 """
 
-from flask import Blueprint, request, jsonify, current_app
+import logging
+from flask import Blueprint, request, jsonify, g
 
+from backend.config.constants import (
+    TIMEOUT_API_REQUEST,
+    ERROR_MSG_MISSING_REQUIRED_FIELDS,
+    ERROR_MSG_INVALID_API_KEY,
+    ERROR_MSG_API_ACCESS_DENIED,
+    ERROR_MSG_API_ENDPOINT_NOT_FOUND,
+    ERROR_MSG_NO_MODELS_FOUND,
+    ERROR_MSG_UNKNOWN_RESPONSE_FORMAT,
+    ERROR_MSG_REQUEST_TIMEOUT,
+    ERROR_MSG_CONNECTION_ERROR,
+    ERROR_MSG_REQUEST_FAILED,
+    ERROR_MSG_FETCH_MODELS_FAILED,
+    SUCCESS_MSG_PROVIDER_ADDED,
+    SUCCESS_MSG_PROVIDER_DELETED,
+    INFO_MSG_FETCHING_MODELS,
+    INFO_MSG_RESPONSE_STATUS,
+    INFO_MSG_MODELS_FOUND,
+)
+
+logger = logging.getLogger(__name__)
 providers_bp = Blueprint('providers', __name__, url_prefix='/api/providers')
 
 
 @providers_bp.route('', methods=['GET'])
 def get_providers():
     """Get all API providers"""
-    db = current_app.config['db']
+    db = g.container.db
     providers = db.get_all_providers()
     return jsonify(providers)
 
@@ -23,7 +44,7 @@ def get_providers():
 @providers_bp.route('', methods=['POST'])
 def add_provider():
     """Add new API provider"""
-    db = current_app.config['db']
+    db = g.container.db
     data = request.json
     
     try:
@@ -33,20 +54,22 @@ def add_provider():
             api_key=data['api_key'],
             models=data.get('models', '')
         )
-        return jsonify({'id': provider_id, 'message': 'Provider added successfully'})
+        return jsonify({'id': provider_id, 'message': SUCCESS_MSG_PROVIDER_ADDED}), 201
     except Exception as e:
+        logger.error(f"Failed to add provider: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 
 @providers_bp.route('/<int:provider_id>', methods=['DELETE'])
 def delete_provider(provider_id):
     """Delete API provider"""
-    db = current_app.config['db']
+    db = g.container.db
     
     try:
         db.delete_provider(provider_id)
-        return jsonify({'message': 'Provider deleted successfully'})
+        return jsonify({'message': SUCCESS_MSG_PROVIDER_DELETED})
     except Exception as e:
+        logger.error(f"Failed to delete provider {provider_id}: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 
@@ -87,7 +110,7 @@ def fetch_provider_models():
     api_key = data.get('api_key')
 
     if not api_url or not api_key:
-        return jsonify({'error': 'API URL and key are required'}), 400
+        return jsonify({'error': ERROR_MSG_MISSING_REQUIRED_FIELDS}), 400
 
     try:
         import requests
@@ -96,7 +119,7 @@ def fetch_provider_models():
         api_url = normalize_api_url(api_url)
         models_endpoint = f'{api_url}/models'
         
-        print(f"[INFO] Fetching models from: {models_endpoint}")
+        logger.info(INFO_MSG_FETCHING_MODELS.format(endpoint=models_endpoint))
         
         # 使用标准的 OpenAI 兼容 API 格式
         headers = {
@@ -105,9 +128,9 @@ def fetch_provider_models():
         }
         
         # 调用 /models 端点获取模型列表
-        response = requests.get(models_endpoint, headers=headers, timeout=15)
+        response = requests.get(models_endpoint, headers=headers, timeout=TIMEOUT_API_REQUEST)
         
-        print(f"[INFO] Response status: {response.status_code}")
+        logger.info(INFO_MSG_RESPONSE_STATUS.format(status=response.status_code))
         
         if response.status_code == 200:
             result = response.json()
@@ -123,20 +146,20 @@ def fetch_provider_models():
                 # 直接返回数组
                 models = result
             else:
-                print(f"[ERROR] Unknown response format: {result}")
-                return jsonify({'error': '无法解析模型列表响应格式'}), 500
+                logger.error(f"Unknown response format: {result}")
+                return jsonify({'error': ERROR_MSG_UNKNOWN_RESPONSE_FORMAT}), 500
             
             if not models:
-                return jsonify({'error': '未找到可用模型'}), 404
+                return jsonify({'error': ERROR_MSG_NO_MODELS_FOUND}), 404
             
-            print(f"[INFO] Found {len(models)} models")
+            logger.info(INFO_MSG_MODELS_FOUND.format(count=len(models)))
             return jsonify({'models': models})
             
         elif response.status_code == 401:
-            return jsonify({'error': 'API 密钥无效，请检查后重试'}), 401
+            return jsonify({'error': ERROR_MSG_INVALID_API_KEY}), 401
         elif response.status_code == 403:
             # 403 通常表示权限不足或 API 密钥没有访问权限
-            error_msg = 'API 访问被拒绝 (403)，可能原因：\n1. API 密钥权限不足\n2. API 密钥已过期\n3. 该 API 不支持列出模型'
+            error_msg = ERROR_MSG_API_ACCESS_DENIED
             try:
                 error_data = response.json()
                 if 'error' in error_data:
@@ -145,17 +168,17 @@ def fetch_provider_models():
                         error_msg = f"访问被拒绝: {detail['message']}"
                     elif isinstance(detail, str):
                         error_msg = f"访问被拒绝: {detail}"
-                print(f"[ERROR] 403 response: {error_data}")
+                logger.error(f"403 response: {error_data}")
             except:
                 pass
             return jsonify({'error': error_msg}), 403
         elif response.status_code == 404:
-            return jsonify({'error': 'API 端点不存在，请检查 URL 是否正确 (可能需要添加或移除 /v1)'}), 404
+            return jsonify({'error': ERROR_MSG_API_ENDPOINT_NOT_FOUND}), 404
         else:
             error_msg = f'API 返回错误状态码: {response.status_code}'
             try:
                 error_data = response.json()
-                print(f"[ERROR] Error response: {error_data}")
+                logger.error(f"Error response: {error_data}")
                 if 'error' in error_data:
                     detail = error_data['error']
                     if isinstance(detail, dict) and 'message' in detail:
@@ -167,20 +190,18 @@ def fetch_provider_models():
                 try:
                     text = response.text[:200]
                     if text:
-                        print(f"[ERROR] Response text: {text}")
+                        logger.error(f"Response text: {text}")
                 except:
                     pass
             return jsonify({'error': error_msg}), response.status_code
             
     except requests.exceptions.Timeout:
-        return jsonify({'error': '请求超时，请检查网络连接或 API 地址'}), 504
+        return jsonify({'error': ERROR_MSG_REQUEST_TIMEOUT}), 504
     except requests.exceptions.ConnectionError:
-        return jsonify({'error': '无法连接到 API，请检查 URL 是否正确'}), 503
+        return jsonify({'error': ERROR_MSG_CONNECTION_ERROR}), 503
     except requests.exceptions.RequestException as e:
-        print(f"[ERROR] Request exception: {e}")
-        return jsonify({'error': f'请求失败: {str(e)}'}), 500
+        logger.error(f"Request exception: {e}", exc_info=True)
+        return jsonify({'error': ERROR_MSG_REQUEST_FAILED.format(detail=str(e))}), 500
     except Exception as e:
-        print(f"[ERROR] Fetch models failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'error': f'获取模型列表失败: {str(e)}'}), 500
+        logger.error(f"Fetch models failed: {e}", exc_info=True)
+        return jsonify({'error': ERROR_MSG_FETCH_MODELS_FAILED.format(detail=str(e))}), 500

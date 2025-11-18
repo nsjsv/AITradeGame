@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { apiClient } from '@/lib/api'
+import { apiClient, ApiError } from '@/lib/api'
 import { useAppStore } from '@/store/useAppStore'
 import { useInterval } from './useInterval'
 import type { MarketPrices } from '@/lib/types'
@@ -18,7 +18,10 @@ interface UseMarketPricesReturn {
 }
 
 export function useMarketPrices(): UseMarketPricesReturn {
-  const { marketPrices, setMarketPrices, config } = useAppStore()
+  const marketPrices = useAppStore((state) => state.marketPrices)
+  const config = useAppStore((state) => state.config)
+  const setMarketPrices = useAppStore((state) => state.setMarketPrices)
+  const setBackendStatus = useAppStore((state) => state.setBackendStatus)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -34,15 +37,25 @@ export function useMarketPrices(): UseMarketPricesReturn {
       
       if (response.success && response.data) {
         setMarketPrices(response.data)
+        setBackendStatus(true, null)
       } else {
         setError(response.error || '获取市场价格失败')
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : '获取市场价格失败')
+      const message =
+        err instanceof ApiError && err.status === 0
+          ? '无法连接到后端服务'
+          : err instanceof Error
+            ? err.message
+            : '获取市场价格失败'
+      setError(message)
+      if (err instanceof ApiError && err.status === 0) {
+        setBackendStatus(false, message)
+      }
     } finally {
       setIsLoading(false)
     }
-  }, [setMarketPrices])
+  }, [setMarketPrices, setBackendStatus])
 
   // 初始加载
   useEffect(() => {

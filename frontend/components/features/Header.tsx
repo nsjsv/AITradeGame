@@ -26,6 +26,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { useAppStore } from '@/store/useAppStore'
 import { useUpdate } from '@/hooks/useUpdate'
+import { useBackendStatus } from '@/hooks/useBackendStatus'
 
 interface HeaderProps {
   onRefresh?: () => void
@@ -42,11 +43,16 @@ export const Header = React.memo(function Header({
   onOpenApiProvider,
   onOpenUpdate,
 }: HeaderProps) {
-  const { isRefreshing, toggleSidebar } = useAppStore()
+  const isRefreshing = useAppStore((state) => state.isRefreshing)
+  const toggleSidebar = useAppStore((state) => state.toggleSidebar)
+  const backendOnline = useAppStore((state) => state.backendOnline)
+  const backendError = useAppStore((state) => state.backendError)
+  const backendLastChecked = useAppStore((state) => state.backendLastChecked)
   const { updateInfo } = useUpdate()
   const { theme, setTheme } = useTheme()
-  const [isRunning] = useState(true) // TODO: 从 API 获取实际运行状态
   const [mounted, setMounted] = useState(false)
+
+  useBackendStatus()
 
   useEffect(() => {
     setMounted(true)
@@ -96,16 +102,26 @@ export const Header = React.memo(function Header({
             <div className="flex items-center gap-1.5">
               <div
                 className={`size-2 rounded-full ${
-                  isRunning
-                    ? 'bg-green-500 animate-pulse'
-                    : 'bg-gray-400'
+                  backendOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'
                 }`}
-                aria-label={isRunning ? '运行中' : '已停止'}
+                aria-label={backendOnline ? '运行中' : '后端离线'}
+                title={
+                  backendOnline
+                    ? backendLastChecked
+                      ? `后端正常（${new Date(backendLastChecked).toLocaleTimeString()}）`
+                      : '后端正常'
+                    : backendError || '无法连接到后端服务'
+                }
               />
               <span className="hidden text-sm text-gray-600 dark:text-gray-400 sm:inline">
-                {isRunning ? '运行中' : '已停止'}
+                {backendOnline ? '运行中' : '后端离线'}
               </span>
             </div>
+            {!backendOnline && backendError && (
+              <span className="hidden text-xs font-medium text-red-600 dark:text-red-400 sm:inline">
+                {backendError}
+              </span>
+            )}
           </div>
         </div>
 
