@@ -20,7 +20,8 @@ interface UseSettingsReturn {
 }
 
 export function useSettings(): UseSettingsReturn {
-  const { config, setConfig } = useAppStore()
+  const config = useAppStore((state) => state.config)
+  const setConfig = useAppStore((state) => state.setConfig)
   const [settings, setSettings] = useState<SystemSettings | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -35,7 +36,7 @@ export function useSettings(): UseSettingsReturn {
     try {
       const response = await apiClient.getSettings()
       
-      if (response.success && response.data) {
+      if (!response.error && response.data) {
         setSettings(response.data)
       } else {
         setError(response.error || '获取系统设置失败')
@@ -57,7 +58,7 @@ export function useSettings(): UseSettingsReturn {
     try {
       const response = await apiClient.getConfig()
       
-      if (response.success && response.data) {
+      if (!response.error && response.data) {
         setConfig(response.data)
       } else {
         setError(response.error || '获取前端配置失败')
@@ -78,7 +79,7 @@ export function useSettings(): UseSettingsReturn {
     try {
       const response = await apiClient.updateSettings(data)
       
-      if (response.success) {
+      if (!response.error) {
         await loadSettings()
         await loadConfig()
         return true

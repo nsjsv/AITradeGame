@@ -14,7 +14,7 @@ COPY version.py .
 
 EXPOSE 5000
 
-CMD ["python", "main.py"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5000"]
 
 FROM node:20-alpine AS frontend
 

@@ -23,7 +23,7 @@ import {
   Moon,
   Sun
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui/Button'
 import { useAppStore } from '@/store/useAppStore'
 import { useUpdate } from '@/hooks/useUpdate'
 import { useBackendStatus } from '@/hooks/useBackendStatus'

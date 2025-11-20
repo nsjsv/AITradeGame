@@ -19,7 +19,8 @@ interface SidebarProps {
 }
 
 export const Sidebar = React.memo(function Sidebar({ className }: SidebarProps) {
-  const { isSidebarOpen, toggleSidebar } = useAppStore()
+  const isSidebarOpen = useAppStore((state) => state.isSidebarOpen)
+  const toggleSidebar = useAppStore((state) => state.toggleSidebar)
   
   const handleOverlayClick = useCallback(() => {
     toggleSidebar()

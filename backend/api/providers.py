@@ -1,207 +1,271 @@
-"""Provider API endpoints
-
-This module handles all Provider-related API routes including:
-- GET /api/providers - List all providers
-- POST /api/providers - Add new provider
-- DELETE /api/providers/<id> - Delete provider
-- POST /api/providers/models - Fetch available models from provider
-"""
+"""Provider API endpoints implemented with FastAPI routers."""
 
 import logging
-from flask import Blueprint, request, jsonify, g
+from typing import Any, Dict, List
 
+from fastapi import APIRouter, Body, Response
+from urllib.parse import urlparse
+import ipaddress
+
+from backend.api.dependencies import ContainerDep
+from backend.api.responses import success_response, error_response
+from backend.config import error_types
 from backend.config.constants import (
-    TIMEOUT_API_REQUEST,
-    ERROR_MSG_MISSING_REQUIRED_FIELDS,
-    ERROR_MSG_INVALID_API_KEY,
-    ERROR_MSG_API_ACCESS_DENIED,
-    ERROR_MSG_API_ENDPOINT_NOT_FOUND,
-    ERROR_MSG_NO_MODELS_FOUND,
-    ERROR_MSG_UNKNOWN_RESPONSE_FORMAT,
-    ERROR_MSG_REQUEST_TIMEOUT,
-    ERROR_MSG_CONNECTION_ERROR,
-    ERROR_MSG_REQUEST_FAILED,
-    ERROR_MSG_FETCH_MODELS_FAILED,
-    SUCCESS_MSG_PROVIDER_ADDED,
-    SUCCESS_MSG_PROVIDER_DELETED,
     INFO_MSG_FETCHING_MODELS,
-    INFO_MSG_RESPONSE_STATUS,
     INFO_MSG_MODELS_FOUND,
+    INFO_MSG_RESPONSE_STATUS,
+    TIMEOUT_API_REQUEST,
+)
+from backend.utils.errors import (
+    ValidationError,
+    NotFoundError,
+    UnauthorizedError,
+    ForbiddenError,
+    ExternalServiceError,
 )
 
 logger = logging.getLogger(__name__)
-providers_bp = Blueprint('providers', __name__, url_prefix='/api/providers')
+router = APIRouter(prefix="/api/providers", tags=["providers"])
 
 
-@providers_bp.route('', methods=['GET'])
-def get_providers():
-    """Get all API providers"""
-    db = g.container.db
+@router.get("")
+def get_providers(container=ContainerDep) -> Dict[str, Any]:
+    """Get all API providers，按统一响应格式返回。"""
+    db = container.db
     providers = db.get_all_providers()
-    return jsonify(providers)
+    return success_response(providers)
 
 
-@providers_bp.route('', methods=['POST'])
-def add_provider():
-    """Add new API provider"""
-    db = g.container.db
-    data = request.json
-    
+@router.post("", status_code=201)
+def add_provider(payload: Dict[str, Any] = Body(...), container=ContainerDep):
+    """Add new API provider."""
+    db = container.db
+
+    required_fields = ("name", "api_url", "api_key")
+    missing_fields = [field for field in required_fields if not payload.get(field)]
+    if missing_fields:
+        raise ValidationError(
+            message=f"Missing required fields: {', '.join(missing_fields)}",
+            details={"missing_fields": missing_fields}
+        )
+
     try:
         provider_id = db.add_provider(
-            name=data['name'],
-            api_url=data['api_url'],
-            api_key=data['api_key'],
-            models=data.get('models', '')
+            name=payload["name"],
+            api_url=payload["api_url"],
+            api_key=payload["api_key"],
+            models=payload.get("models", ""),
         )
-        return jsonify({'id': provider_id, 'message': SUCCESS_MSG_PROVIDER_ADDED}), 201
-    except Exception as e:
-        logger.error(f"Failed to add provider: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return success_response({"id": provider_id})
+    except ValidationError:
+        raise
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.error("Failed to add provider: %s", exc, exc_info=True)
+        raise ExternalServiceError(
+            message="Failed to add provider",
+            status_code=500,
+            details={"error": str(exc)}
+        )
 
 
-@providers_bp.route('/<int:provider_id>', methods=['DELETE'])
-def delete_provider(provider_id):
-    """Delete API provider"""
-    db = g.container.db
-    
+@router.delete("/{provider_id}", status_code=204)
+def delete_provider(provider_id: int, container=ContainerDep):
+    """Delete API provider."""
+    db = container.db
+
     try:
         db.delete_provider(provider_id)
-        return jsonify({'message': SUCCESS_MSG_PROVIDER_DELETED})
-    except Exception as e:
-        logger.error(f"Failed to delete provider {provider_id}: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return Response(status_code=204)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.error("Failed to delete provider %s: %s", provider_id, exc, exc_info=True)
+        raise ExternalServiceError(
+            message="Failed to delete provider",
+            status_code=500,
+            details={"provider_id": provider_id, "error": str(exc)}
+        )
 
 
-def normalize_api_url(url: str) -> str:
-    """智能处理 API URL，自动添加 /v1 如果需要"""
-    import re
-    from urllib.parse import urlparse
-    
-    trimmed = url.strip().rstrip('/')
-    
-    # 如果已经包含版本号（/v1, /v2 等），直接返回
-    if re.search(r'/v\d+$', trimmed, re.IGNORECASE):
-        return trimmed
-    
-    # 解析 URL 获取路径部分
-    parsed = urlparse(trimmed)
-    path = parsed.path
-    
-    # 不需要添加 /v1 的情况：
-    # 1. 路径中已经包含 /api/（注意是路径，不是域名）
-    # 2. 本地服务
-    if path and '/api/' in path:
-        return trimmed
-    
-    if any(host in parsed.netloc for host in ['localhost', '127.0.0.1']) or \
-       parsed.netloc.startswith('192.168.') or parsed.netloc.startswith('10.'):
-        return trimmed
-    
-    # 默认添加 /v1（大多数 OpenAI 兼容 API 都需要）
-    return f'{trimmed}/v1'
+def _reject_private_host(hostname: str) -> None:
+    """Raise if the host is clearly private/loopback."""
+    lowered = hostname.lower()
+    if lowered in ("localhost",) or lowered.startswith("localhost."):
+        raise ValidationError(
+            message="拒绝访问本地地址",
+            details={"hostname": hostname}
+        )
+    try:
+        ip = ipaddress.ip_address(lowered)
+        if ip.is_private or ip.is_loopback or ip.is_link_local:
+            raise ValidationError(
+                message="拒绝访问内网地址",
+                details={"hostname": hostname, "ip": str(ip)}
+            )
+    except ValueError:
+        # Not an IP literal; best-effort block obvious private naming
+        if lowered.startswith(("127.", "10.", "192.168.", "172.16.", "172.17.", "172.18.", "172.19.",
+                               "172.20.", "172.21.", "172.22.", "172.23.", "172.24.", "172.25.",
+                               "172.26.", "172.27.", "172.28.", "172.29.", "172.30.", "172.31.")):
+            raise ValidationError(
+                message="拒绝访问内网地址",
+                details={"hostname": hostname}
+            )
 
 
-@providers_bp.route('/models', methods=['POST'])
-def fetch_provider_models():
-    """Fetch available models from provider's API"""
-    data = request.json
-    api_url = data.get('api_url')
-    api_key = data.get('api_key')
+def _validate_external_url(raw_url: str) -> str:
+    """Parse and validate provider URL to avoid SSRF against internal services."""
+    parsed = urlparse(raw_url.strip())
+    if parsed.scheme not in ("http", "https"):
+        raise ValidationError(
+            message="只允许 http/https 协议",
+            details={"url": raw_url, "scheme": parsed.scheme}
+        )
+    if not parsed.hostname:
+        raise ValidationError(
+            message="无效的提供方地址",
+            details={"url": raw_url}
+        )
+    _reject_private_host(parsed.hostname)
+    return parsed.geturl()
+
+
+@router.post("/models")
+def fetch_provider_models(payload: Dict[str, Any] = Body(...)):
+    """Fetch available models from provider's API."""
+    api_url = payload.get("api_url")
+    api_key = payload.get("api_key")
 
     if not api_url or not api_key:
-        return jsonify({'error': ERROR_MSG_MISSING_REQUIRED_FIELDS}), 400
+        missing = []
+        if not api_url:
+            missing.append("api_url")
+        if not api_key:
+            missing.append("api_key")
+        raise ValidationError(
+            message="Missing required fields",
+            details={"missing_fields": missing}
+        )
 
     try:
         import requests
-        
-        # 智能处理 URL，自动添加 /v1
-        api_url = normalize_api_url(api_url)
-        models_endpoint = f'{api_url}/models'
-        
+
+        api_url = _validate_external_url(api_url).rstrip("/")
+        models_endpoint = f"{api_url}/models"
+
         logger.info(INFO_MSG_FETCHING_MODELS.format(endpoint=models_endpoint))
-        
-        # 使用标准的 OpenAI 兼容 API 格式
+
         headers = {
-            'Authorization': f'Bearer {api_key}',
-            'Content-Type': 'application/json'
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
         }
-        
-        # 调用 /models 端点获取模型列表
+
         response = requests.get(models_endpoint, headers=headers, timeout=TIMEOUT_API_REQUEST)
-        
+
         logger.info(INFO_MSG_RESPONSE_STATUS.format(status=response.status_code))
-        
+
         if response.status_code == 200:
             result = response.json()
-            
+
             # 解析响应数据
-            if 'data' in result and isinstance(result['data'], list):
-                # 标准 OpenAI 格式: {"data": [{"id": "model-name", ...}, ...]}
-                models = [m['id'] for m in result['data'] if 'id' in m]
-            elif 'models' in result and isinstance(result['models'], list):
-                # 某些提供方使用 "models" 字段
-                models = result['models']
+            if "data" in result and isinstance(result["data"], list):
+                models = [m["id"] for m in result["data"] if "id" in m]
+            elif "models" in result and isinstance(result["models"], list):
+                models = result["models"]
             elif isinstance(result, list):
-                # 直接返回数组
                 models = result
             else:
-                logger.error(f"Unknown response format: {result}")
-                return jsonify({'error': ERROR_MSG_UNKNOWN_RESPONSE_FORMAT}), 500
-            
+                logger.error("Unknown response format: %s", result)
+                raise ExternalServiceError(
+                    message="Unknown response format from provider API",
+                    status_code=500,
+                    details={"response": str(result)[:200]}
+                )
+
             if not models:
-                return jsonify({'error': ERROR_MSG_NO_MODELS_FOUND}), 404
-            
+                raise NotFoundError(
+                    message="No models found from provider",
+                    details={"api_url": api_url}
+                )
+
             logger.info(INFO_MSG_MODELS_FOUND.format(count=len(models)))
-            return jsonify({'models': models})
-            
-        elif response.status_code == 401:
-            return jsonify({'error': ERROR_MSG_INVALID_API_KEY}), 401
-        elif response.status_code == 403:
-            # 403 通常表示权限不足或 API 密钥没有访问权限
-            error_msg = ERROR_MSG_API_ACCESS_DENIED
+            return success_response({"models": models})
+
+        if response.status_code == 401:
+            raise UnauthorizedError(
+                message="Invalid API key",
+                details={"api_url": api_url}
+            )
+        if response.status_code == 403:
+            error_msg = "API access denied"
             try:
                 error_data = response.json()
-                if 'error' in error_data:
-                    detail = error_data['error']
-                    if isinstance(detail, dict) and 'message' in detail:
+                if "error" in error_data:
+                    detail = error_data["error"]
+                    if isinstance(detail, dict) and "message" in detail:
                         error_msg = f"访问被拒绝: {detail['message']}"
                     elif isinstance(detail, str):
                         error_msg = f"访问被拒绝: {detail}"
-                logger.error(f"403 response: {error_data}")
-            except:
+                logger.error("403 response: %s", error_data)
+            except Exception:
                 pass
-            return jsonify({'error': error_msg}), 403
-        elif response.status_code == 404:
-            return jsonify({'error': ERROR_MSG_API_ENDPOINT_NOT_FOUND}), 404
-        else:
-            error_msg = f'API 返回错误状态码: {response.status_code}'
+            raise ForbiddenError(
+                message=error_msg,
+                details={"api_url": api_url}
+            )
+        if response.status_code == 404:
+            raise NotFoundError(
+                message="API endpoint not found",
+                details={"endpoint": models_endpoint}
+            )
+
+        error_msg = f"API 返回错误状态码: {response.status_code}"
+        try:
+            error_data = response.json()
+            logger.error("Error response: %s", error_data)
+            if "error" in error_data:
+                detail = error_data["error"]
+                if isinstance(detail, dict) and "message" in detail:
+                    error_msg = detail["message"]
+                elif isinstance(detail, str):
+                    error_msg = detail
+        except Exception:
             try:
-                error_data = response.json()
-                logger.error(f"Error response: {error_data}")
-                if 'error' in error_data:
-                    detail = error_data['error']
-                    if isinstance(detail, dict) and 'message' in detail:
-                        error_msg = detail['message']
-                    elif isinstance(detail, str):
-                        error_msg = detail
-            except:
-                # 如果无法解析 JSON，尝试获取文本内容
-                try:
-                    text = response.text[:200]
-                    if text:
-                        logger.error(f"Response text: {text}")
-                except:
-                    pass
-            return jsonify({'error': error_msg}), response.status_code
-            
+                text = response.text[:200]
+                if text:
+                    logger.error("Response text: %s", text)
+            except Exception:
+                pass
+
+        raise ExternalServiceError(
+            message=error_msg,
+            status_code=response.status_code if 500 <= response.status_code < 600 else 502,
+            details={"api_url": api_url, "status_code": response.status_code}
+        )
+
     except requests.exceptions.Timeout:
-        return jsonify({'error': ERROR_MSG_REQUEST_TIMEOUT}), 504
-    except requests.exceptions.ConnectionError:
-        return jsonify({'error': ERROR_MSG_CONNECTION_ERROR}), 503
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Request exception: {e}", exc_info=True)
-        return jsonify({'error': ERROR_MSG_REQUEST_FAILED.format(detail=str(e))}), 500
-    except Exception as e:
-        logger.error(f"Fetch models failed: {e}", exc_info=True)
-        return jsonify({'error': ERROR_MSG_FETCH_MODELS_FAILED.format(detail=str(e))}), 500
+        raise ExternalServiceError(
+            message="Request timeout",
+            status_code=504,
+            details={"api_url": api_url, "timeout": TIMEOUT_API_REQUEST}
+        )
+    except requests.exceptions.ConnectionError as exc:
+        raise ExternalServiceError(
+            message="Connection error",
+            status_code=503,
+            details={"api_url": api_url, "error": str(exc)}
+        )
+    except requests.exceptions.RequestException as exc:
+        logger.error("Request exception: %s", exc, exc_info=True)
+        raise ExternalServiceError(
+            message=f"Request failed: {str(exc)}",
+            status_code=500,
+            details={"api_url": api_url}
+        )
+    except (ValidationError, NotFoundError, UnauthorizedError, ForbiddenError, ExternalServiceError):
+        raise
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.error("Fetch models failed: %s", exc, exc_info=True)
+        raise ExternalServiceError(
+            message=f"Failed to fetch models: {str(exc)}",
+            status_code=500,
+            details={"api_url": api_url}
+        )

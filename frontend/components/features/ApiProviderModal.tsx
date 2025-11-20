@@ -19,10 +19,10 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+} from '@/components/ui/Dialog'
+import { Input } from '@/components/ui/Input'
+import { Button } from '@/components/ui/Button'
+import { Badge } from '@/components/ui/Badge'
 import { useProviders } from '@/hooks/useProviders'
 import { Trash2Icon, RefreshCwIcon, XIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'

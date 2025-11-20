@@ -18,9 +18,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+} from '@/components/ui/Table'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { Badge } from '@/components/ui/Badge'
 import {
   formatPrice,
   formatQuantity,
@@ -59,7 +59,7 @@ function getSignalBadge(signal: Trade['signal']) {
 
 export const TradesTable = React.memo(function TradesTable() {
   const { trades, isLoading } = useTrades(50)
-  const { isAggregatedView } = useAppStore()
+  const isAggregatedView = useAppStore((state) => state.isAggregatedView)
 
   // 聚合视图中隐藏
   if (isAggregatedView) {

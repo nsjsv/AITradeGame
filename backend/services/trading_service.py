@@ -94,29 +94,30 @@ class TradingService:
     def execute_trading_cycle(self, model_id: int) -> Dict:
         """执行交易周期
         
-        执行指定模型的一次完整交易周期
-        
         Args:
             model_id: 模型 ID
             
         Returns:
             包含执行结果的字典
+        
+        Raises:
+            RuntimeError: 当无法创建或获取交易引擎时
+            Exception: 透传交易执行中的异常
         """
         engine = self.get_or_create_engine(model_id)
         if not engine:
-            return {
-                'success': False,
-                'error': 'Failed to get or create trading engine'
-            }
+            raise RuntimeError('Failed to get or create trading engine')
         
         try:
-            result = engine.execute_trading_cycle()
-            return result
-        except Exception as e:
-            return {
-                'success': False,
-                'error': str(e)
-            }
+            return engine.execute_trading_cycle()
+        except Exception as e:  # pragma: no cover - defensive logging
+            self._logger.error(
+                "Trading cycle failed for model %s: %s",
+                model_id,
+                e,
+                exc_info=True,
+            )
+            raise
     
     def get_or_create_engine(self, model_id: int) -> TradingEngine:
         """获取或创建交易引擎

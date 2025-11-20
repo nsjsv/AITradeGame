@@ -1,1 +1,1 @@
-"""API layer: Flask routes and blueprints"""
+"""API layer: FastAPI routers"""

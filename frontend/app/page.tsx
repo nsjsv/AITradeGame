@@ -16,7 +16,7 @@ import AddModelModal from '@/components/features/AddModelModal'
 import ApiProviderModal from '@/components/features/ApiProviderModal'
 import SettingsModal from '@/components/features/SettingsModal'
 import UpdateModal from '@/components/features/UpdateModal'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
 import { useAppStore } from '@/store/useAppStore'
 import { usePortfolio } from '@/hooks/usePortfolio'
 import { initPerformanceMonitoring, logPerformanceReport } from '@/lib/performance'
@@ -25,18 +25,22 @@ import { cn } from '@/lib/utils'
 export default function HomePage() {
   const isAggregatedView = useAppStore((state) => state.isAggregatedView)
   const isRefreshing = useAppStore((state) => state.isRefreshing)
-  const { portfolio, chartData, isLoading } = usePortfolio()
+  const { portfolio, chartData, isLoading, loadPortfolio } = usePortfolio()
   
-  // 模态对话框状态
-  const [isAddModelOpen, setIsAddModelOpen] = useState(false)
-  const [isApiProviderOpen, setIsApiProviderOpen] = useState(false)
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-  const [isUpdateOpen, setIsUpdateOpen] = useState(false)
+  type ModalType = 'addModel' | 'apiProvider' | 'settings' | 'update'
+  const [activeModal, setActiveModal] = useState<ModalType | null>(null)
+  const handleModalOpenChange = useCallback(
+    (modal: ModalType) => (open: boolean) => {
+      setActiveModal(open ? modal : null)
+    },
+    []
+  )
+  const openModal = useCallback((modal: ModalType) => setActiveModal(modal), [])
   
   // 刷新处理
   const handleRefresh = useCallback(() => {
-    window.location.reload()
-  }, [])
+    void loadPortfolio()
+  }, [loadPortfolio])
   
   // 初始化性能监控
   useEffect(() => {
@@ -58,10 +62,10 @@ export default function HomePage() {
       <div className="flex h-screen flex-col bg-background text-foreground">
         <Header 
           onRefresh={handleRefresh}
-          onOpenSettings={() => setIsSettingsOpen(true)}
-          onOpenAddModel={() => setIsAddModelOpen(true)}
-          onOpenApiProvider={() => setIsApiProviderOpen(true)}
-          onOpenUpdate={() => setIsUpdateOpen(true)}
+          onOpenSettings={() => openModal('settings')}
+          onOpenAddModel={() => openModal('addModel')}
+          onOpenApiProvider={() => openModal('apiProvider')}
+          onOpenUpdate={() => openModal('update')}
         />
         <div className="flex flex-1 overflow-hidden">
           <Sidebar />
@@ -130,23 +134,23 @@ export default function HomePage() {
         
         {/* 模态对话框 */}
         <AddModelModal 
-          open={isAddModelOpen} 
-          onOpenChange={setIsAddModelOpen} 
+          open={activeModal === 'addModel'} 
+          onOpenChange={handleModalOpenChange('addModel')} 
         />
         
         <ApiProviderModal 
-          open={isApiProviderOpen} 
-          onOpenChange={setIsApiProviderOpen} 
+          open={activeModal === 'apiProvider'} 
+          onOpenChange={handleModalOpenChange('apiProvider')} 
         />
         
         <SettingsModal 
-          open={isSettingsOpen} 
-          onOpenChange={setIsSettingsOpen} 
+          open={activeModal === 'settings'} 
+          onOpenChange={handleModalOpenChange('settings')} 
         />
         
         <UpdateModal 
-          open={isUpdateOpen} 
-          onOpenChange={setIsUpdateOpen}
+          open={activeModal === 'update'} 
+          onOpenChange={handleModalOpenChange('update')}
           updateInfo={null} // TODO: 从 useUpdate hook 获取
         />
       </div>

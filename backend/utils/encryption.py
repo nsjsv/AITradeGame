@@ -108,9 +108,8 @@ class EncryptionManager:
             logger.debug("Decrypted legacy API key format")
             return legacy_plain
         
-        # Plaintext fallback (never encrypted)
-        logger.warning("Detected plaintext sensitive value; returning as-is")
-        return ciphertext
+        # 明确返回空串，避免把未加密的垃圾字符串当作有效值
+        return ""
 
 
 # Global encryption manager instance

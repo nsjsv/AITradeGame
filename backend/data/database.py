@@ -23,6 +23,11 @@ class DatabaseInterface(ABC):
     def init_db(self) -> None:
         """Initialize database tables"""
         pass
+
+    @abstractmethod
+    def close(self) -> None:
+        """Close database resources."""
+        pass
     
     # ============ Provider Management ============
     

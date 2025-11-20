@@ -15,7 +15,7 @@ services:
     build:
       context: .
       target: backend
-    command: python main.py
+    command: uvicorn main:app --host 0.0.0.0 --port 5000
     working_dir: /app
     volumes:
       - ./:/app
@@ -42,7 +42,7 @@ services:
       COLLECTOR_PORT: 5100
       POSTGRES_URI: postgresql://aitrade:aitrade@postgres:5432/aitrade
       MARKET_HISTORY_ENABLED: "True"
-      MARKET_HISTORY_INTERVAL: 60
+      MARKET_HISTORY_INTERVAL: 5
       MARKET_HISTORY_RESOLUTION: 60
       TRADING_COINS: BTC,ETH,SOL,BNB,XRP,DOGE
     depends_on:

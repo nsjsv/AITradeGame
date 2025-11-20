@@ -18,7 +18,9 @@ interface UseTradesReturn {
 }
 
 export function useTrades(limit: number = 50): UseTradesReturn {
-  const { selectedModelId, isAggregatedView, config } = useAppStore()
+  const selectedModelId = useAppStore((state) => state.selectedModelId)
+  const isAggregatedView = useAppStore((state) => state.isAggregatedView)
+  const config = useAppStore((state) => state.config)
   const [trades, setTrades] = useState<Trade[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -44,7 +46,7 @@ export function useTrades(limit: number = 50): UseTradesReturn {
     try {
       const response = await apiClient.getModelTrades(selectedModelId, limit)
       
-      if (response.success && response.data) {
+      if (!response.error && response.data) {
         setTrades(response.data)
       } else {
         setError(response.error || '获取交易记录失败')

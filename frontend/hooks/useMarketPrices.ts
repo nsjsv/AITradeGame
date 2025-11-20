@@ -35,7 +35,7 @@ export function useMarketPrices(): UseMarketPricesReturn {
     try {
       const response = await apiClient.getMarketPrices()
       
-      if (response.success && response.data) {
+      if (!response.error && response.data) {
         setMarketPrices(response.data)
         setBackendStatus(true, null)
       } else {

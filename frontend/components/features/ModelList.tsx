@@ -12,15 +12,18 @@
 
 import React, { useState, useCallback } from 'react'
 import { Trash2, TrendingUp } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
 import { useAppStore } from '@/store/useAppStore'
 import { useModels } from '@/hooks/useModels'
 import { cn } from '@/lib/utils'
 
 export const ModelList = React.memo(function ModelList() {
   const { models, isLoading, deleteModel } = useModels()
-  const { selectedModelId, isAggregatedView, setSelectedModel, setAggregatedView } = useAppStore()
+  const selectedModelId = useAppStore((state) => state.selectedModelId)
+  const isAggregatedView = useAppStore((state) => state.isAggregatedView)
+  const setSelectedModel = useAppStore((state) => state.setSelectedModel)
+  const setAggregatedView = useAppStore((state) => state.setAggregatedView)
   const [deletingId, setDeletingId] = useState<number | null>(null)
 
   /**

@@ -56,7 +56,7 @@ export function usePortfolio(): UsePortfolioReturn {
         // 聚合视图
         const response = await apiClient.getAggregatedPortfolio()
         
-        if (response.success && response.data) {
+        if (!response.error && response.data) {
           setPortfolio(response.data.portfolio)
           setChartData(response.data.chart_data)
         } else {
@@ -66,7 +66,7 @@ export function usePortfolio(): UsePortfolioReturn {
         // 单个模型视图
         const response = await apiClient.getModelPortfolio(selectedModelId)
         
-        if (response.success && response.data) {
+        if (!response.error && response.data) {
           setPortfolio(response.data.portfolio)
           setChartData(response.data.account_value_history)
         } else {

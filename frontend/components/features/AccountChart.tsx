@@ -13,7 +13,7 @@
 
 import React, { useMemo, lazy, Suspense, useEffect, useRef } from 'react'
 import { useTheme } from 'next-themes'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { formatPrice, formatTimestamp } from '@/lib/utils'
 import type { AccountValueHistory, ModelChartData } from '@/lib/types'
 import type { ECharts } from 'echarts'

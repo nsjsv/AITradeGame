@@ -1,9 +1,10 @@
-"""Pytest configuration and fixtures"""
+"""Pytest configuration and fixtures."""
 
 import os
 
 import pytest
-from psycopg import sql, conninfo
+from fastapi.testclient import TestClient
+from psycopg import conninfo, sql
 
 from backend.config.settings import Config
 from main import create_app
@@ -58,7 +59,7 @@ def test_config() -> Config:
     _validate_test_uri(TEST_DB_URI)
     config = Config()
     config.DEBUG = True
-    config.TESTING = True
+    config.TESTING = True  # type: ignore[attr-defined]
     config.POSTGRES_URI = TEST_DB_URI
     config.AUTO_TRADING = False
     config.MARKET_HISTORY_ENABLED = False
@@ -67,32 +68,22 @@ def test_config() -> Config:
 
 @pytest.fixture
 def app(test_config: Config):
-    """Create Flask app for testing"""
-    app = create_app(test_config)
-    app.config["TESTING"] = True
-    
-    with app.app_context():
-        container = app.config["container"]
-        container.db.init_db()
-        _reset_database(container.db)
-    
-    yield app
-    
-    with app.app_context():
-        container = app.config["container"]
-        _reset_database(container.db)
-        container.cleanup()
+    """Create FastAPI app for testing."""
+    return create_app(test_config)
 
 
 @pytest.fixture
 def client(app):
-    """Create test client"""
-    return app.test_client()
+    """Create test client with isolated database state."""
+    with TestClient(app) as client:
+        container = app.state.container
+        container.db.init_db()
+        _reset_database(container.db)
+        yield client
+        _reset_database(container.db)
 
 
 @pytest.fixture
-def db(app):
-    """Get database instance"""
-    with app.app_context():
-        container = app.config["container"]
-        return container.db
+def db(client):
+    """Get database instance from running app."""
+    return client.app.state.container.db

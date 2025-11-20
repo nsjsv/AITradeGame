@@ -19,7 +19,9 @@ envFiles.forEach((file) => {
 
 const nextConfig: NextConfig = {
   /* config options here */
-  reactCompiler: true,
+  experimental: {
+    reactCompiler: true,
+  },
   
   // ============================================================================
   // 环境变量配置

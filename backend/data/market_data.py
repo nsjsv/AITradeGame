@@ -1,10 +1,12 @@
 """
 Market data module - Binance API integration
 """
+import heapq
 import requests
 import time
 import logging
-from typing import Dict, List
+import threading
+from typing import Dict, List, Optional
 
 from backend.config.constants import (
     BINANCE_BASE_URL,
@@ -12,6 +14,7 @@ from backend.config.constants import (
     MARKET_DATA_CACHE_TTL,
     ERROR_MSG_API_REQUEST_FAILED,
 )
+from backend.utils.exceptions import MarketDataException
 
 
 class MarketDataFetcher:
@@ -48,29 +51,55 @@ class MarketDataFetcher:
             'DOGE': 'dogecoin'
         }
         
-        self._cache = {}
-        self._cache_time = {}
+        self._cache: Dict[str, Dict] = {}
+        self._cache_expiry: Dict[str, float] = {}
+        self._expiry_heap: List[tuple[float, str]] = []
         self._cache_duration = cache_duration  # Configurable cache duration
+        self._max_cache_entries = 32  # Prevent unbounded cache growth
+        self._lock = threading.Lock()
+
+    def _evict_cache_key(self, key: str) -> None:
+        """Remove a cache entry safely."""
+        self._cache.pop(key, None)
+        self._cache_expiry.pop(key, None)
+
+    def _evict_expired_entries(self, now: Optional[float] = None) -> None:
+        """Remove expired entries and enforce cache size limits."""
+        if not self._expiry_heap:
+            return
+        current = now or time.time()
+        while self._expiry_heap and self._expiry_heap[0][0] <= current:
+            _, key = heapq.heappop(self._expiry_heap)
+            expiry = self._cache_expiry.get(key)
+            if expiry is None or expiry <= current:
+                self._evict_cache_key(key)
+
+        while len(self._cache) > self._max_cache_entries and self._cache_expiry:
+            oldest_key = min(self._cache_expiry, key=self._cache_expiry.get)
+            self._evict_cache_key(oldest_key)
     
-    def get_current_prices(self, coins: List[str]) -> Dict[str, float]:
-        """Get current prices from Binance API"""
-        # Check cache
+    def get_current_prices(self, coins: List[str]) -> Dict[str, Dict]:
+        """Get current prices from Binance API with CoinGecko fallback."""
         cache_key = 'prices_' + '_'.join(sorted(coins))
-        if cache_key in self._cache:
-            if time.time() - self._cache_time[cache_key] < self._cache_duration:
-                return self._cache[cache_key]
-        
-        prices = {}
+
+        # Return cached data if still valid
+        with self._lock:
+            now = time.time()
+            self._evict_expired_entries(now)
+            cached = self._cache.get(cache_key)
+            expiry = self._cache_expiry.get(cache_key, 0)
+            if cached and expiry > now:
+                return cached
+
+        prices: Dict[str, Dict] = {}
         snapshot_ts = int(time.time())
-        
+        binance_error: Optional[Exception] = None
+
         try:
-            # Batch fetch Binance 24h ticker data
             symbols = [self.binance_symbols.get(coin) for coin in coins if coin in self.binance_symbols]
-            
+
             if symbols:
-                # Build symbols parameter
                 symbols_param = '[' + ','.join([f'"{s}"' for s in symbols]) + ']'
-                
                 response = requests.get(
                     f"{self.binance_base_url}/ticker/24hr",
                     params={'symbols': symbols_param},
@@ -78,11 +107,9 @@ class MarketDataFetcher:
                 )
                 response.raise_for_status()
                 data = response.json()
-                
-                # Parse data
+
                 for item in data:
                     symbol = item['symbol']
-                    # Find corresponding coin
                     for coin, binance_symbol in self.binance_symbols.items():
                         if binance_symbol == symbol:
                             prices[coin] = {
@@ -93,26 +120,43 @@ class MarketDataFetcher:
                                 'timestamp': snapshot_ts
                             }
                             break
-            
-            # Update cache
-            self._cache[cache_key] = prices
-            self._cache_time[cache_key] = time.time()
-            
-            if prices:
-                return prices
+        except Exception as exc:
+            binance_error = exc
+            self._logger.error(f"Binance API failed: {exc}")
+
+        if prices:
+            self._store_cache_entry(cache_key, prices)
             return prices
-            
-        except Exception as e:
-            self._logger.error(f"Binance API failed: {e}")
-            # Fallback to CoinGecko
-            return self._get_prices_from_coingecko(coins)
+
+        if binance_error is None:
+            self._logger.warning("Binance API returned empty data set, falling back to CoinGecko")
+
+        fallback_prices = self._get_prices_from_coingecko(coins, binance_error)
+        self._store_cache_entry(cache_key, fallback_prices)
+        return fallback_prices
     
-    def _get_prices_from_coingecko(self, coins: List[str]) -> Dict[str, float]:
-        """Fallback: Fetch prices from CoinGecko"""
+    def _store_cache_entry(self, cache_key: str, prices: Dict[str, Dict]) -> None:
+        """Persist fetched prices in the in-memory cache."""
+        with self._lock:
+            if prices:
+                expiry_ts = time.time() + self._cache_duration
+                self._cache[cache_key] = prices
+                self._cache_expiry[cache_key] = expiry_ts
+                heapq.heappush(self._expiry_heap, (expiry_ts, cache_key))
+                self._evict_expired_entries()
+            else:
+                self._evict_cache_key(cache_key)
+
+    def _get_prices_from_coingecko(
+        self,
+        coins: List[str],
+        previous_error: Optional[Exception] = None,
+    ) -> Dict[str, Dict]:
+        """Fallback: Fetch prices from CoinGecko or raise if unavailable."""
         try:
             snapshot_ts = int(time.time())
             coin_ids = [self.coingecko_mapping.get(coin, coin.lower()) for coin in coins]
-            
+
             response = requests.get(
                 f"{self.coingecko_base_url}/simple/price",
                 params={
@@ -124,8 +168,8 @@ class MarketDataFetcher:
             )
             response.raise_for_status()
             data = response.json()
-            
-            prices = {}
+
+            prices: Dict[str, Dict] = {}
             for coin in coins:
                 coin_id = self.coingecko_mapping.get(coin, coin.lower())
                 if coin_id in data:
@@ -136,11 +180,26 @@ class MarketDataFetcher:
                         'source': 'coingecko',
                         'timestamp': snapshot_ts
                     }
-            
-            return prices
-        except Exception as e:
-            self._logger.error(f"CoinGecko fallback also failed: {e}")
-            return {coin: {'price': 0, 'change_24h': 0} for coin in coins}
+
+            if prices:
+                return prices
+
+            detail = "CoinGecko returned an empty result set"
+            if previous_error:
+                detail = f"Binance error: {previous_error}; {detail}"
+            self._logger.error(detail)
+            raise MarketDataException(ERROR_MSG_API_REQUEST_FAILED.format(detail=detail))
+
+        except MarketDataException:
+            raise
+        except Exception as exc:
+            detail = f"CoinGecko request failed: {exc}"
+            if previous_error:
+                detail = f"Binance error: {previous_error}; CoinGecko error: {exc}"
+            self._logger.error(detail)
+            raise MarketDataException(
+                ERROR_MSG_API_REQUEST_FAILED.format(detail=detail)
+            ) from exc
     
     def get_market_data(self, coin: str) -> Dict:
         """Get detailed market data from CoinGecko"""

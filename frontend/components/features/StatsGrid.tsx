@@ -11,7 +11,7 @@
 
 import React, { useMemo } from 'react'
 import { Wallet, DollarSign, TrendingUp, TrendingDown } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/Card'
 import { formatPrice, getPnlColorClass } from '@/lib/utils'
 import type { Portfolio } from '@/lib/types'
 import { cn } from '@/lib/utils'

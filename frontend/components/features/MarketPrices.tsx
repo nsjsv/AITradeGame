@@ -11,7 +11,7 @@
 
 import React, { useMemo } from 'react'
 import { TrendingUp, TrendingDown } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { useMarketPrices } from '@/hooks/useMarketPrices'
 import { cn } from '@/lib/utils'
 

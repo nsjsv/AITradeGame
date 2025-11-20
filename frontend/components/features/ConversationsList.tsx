@@ -11,13 +11,13 @@
 import React from 'react'
 import { useConversations } from '@/hooks'
 import { useAppStore } from '@/store/useAppStore'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { formatTimestamp } from '@/lib/utils'
 import type { Conversation } from '@/lib/types'
 
 export const ConversationsList = React.memo(function ConversationsList() {
   const { conversations, isLoading } = useConversations(20)
-  const { isAggregatedView } = useAppStore()
+  const isAggregatedView = useAppStore((state) => state.isAggregatedView)
 
   // 聚合视图中隐藏
   if (isAggregatedView) {

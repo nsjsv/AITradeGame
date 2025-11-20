@@ -67,7 +67,7 @@ export function useUpdate(): UseUpdateReturn {
     try {
       const response = await apiClient.checkUpdate()
       
-      if (response.success && response.data) {
+      if (!response.error && response.data) {
         setUpdateInfo(response.data)
         // 检查是否在抑制期内
         const dismissed = isUpdateDismissed()

@@ -20,7 +20,8 @@ interface UseModelsReturn {
 }
 
 export function useModels(): UseModelsReturn {
-  const { models, setModels } = useAppStore()
+  const models = useAppStore((state) => state.models)
+  const setModels = useAppStore((state) => state.setModels)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -34,7 +35,7 @@ export function useModels(): UseModelsReturn {
     try {
       const response = await apiClient.getModels()
       
-      if (response.success && response.data) {
+      if (!response.error && response.data) {
         setModels(response.data)
       } else {
         setError(response.error || '获取模型列表失败')
@@ -55,7 +56,8 @@ export function useModels(): UseModelsReturn {
     try {
       const response = await apiClient.createModel(data)
       
-      if (response.success) {
+      const isSuccess = !response.error
+      if (isSuccess) {
         await loadModels()
         return true
       } else {
@@ -77,7 +79,8 @@ export function useModels(): UseModelsReturn {
     try {
       const response = await apiClient.deleteModel(id)
       
-      if (response.success) {
+      const isSuccess = !response.error
+      if (isSuccess) {
         await loadModels()
         return true
       } else {
@@ -99,7 +102,7 @@ export function useModels(): UseModelsReturn {
     try {
       const response = await apiClient.executeTrading(id)
       
-      if (response.success) {
+      if (!response.error) {
         return true
       } else {
         setError(response.error || '执行交易失败')

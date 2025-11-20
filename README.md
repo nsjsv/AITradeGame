@@ -116,7 +116,7 @@ Key configuration options:
 - `MARKET_CACHE_DURATION`: Market data cache duration in seconds (default: 5)
 - `MARKET_API_URL`: External market data API base URL (default: CoinGecko)
 - `MARKET_HISTORY_ENABLED`: Toggle background market snapshot persistence (default: True)
-- `MARKET_HISTORY_INTERVAL`: Snapshot interval in seconds (default: 60)
+- `MARKET_HISTORY_INTERVAL`: Snapshot interval in seconds (default: 5)
 - `MARKET_HISTORY_RESOLUTION`: Resolution bucket in seconds for stored candles (default: 60)
 - `MARKET_HISTORY_MAX_POINTS`: Maximum records returned from history API (default: 500, capped at 2000)
 - `MARKET_HISTORY_CACHE_TTL`: Cache TTL for history responses (default: 60; placeholder for future Redis integration)

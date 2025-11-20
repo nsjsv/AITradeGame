@@ -191,9 +191,7 @@ class ServiceContainer:
         # 清理数据库连接
         if self._db is not None:
             try:
-                # 如果数据库实现有 close 方法，调用它
-                if hasattr(self._db, 'close'):
-                    self._db.close()
+                self._db.close()
                 self._logger.debug("数据库连接已关闭")
             except Exception as e:
                 self._logger.error(f"关闭数据库连接时出错: {e}", exc_info=True)

@@ -53,104 +53,80 @@ class TradingEngine:
         
         Returns:
             Dictionary with execution results
-            
-        Raises:
-            Exception: Re-raises any exception after logging for proper error handling
         """
-        try:
-            self._logger.info(
-                f"Starting trading cycle for model_id={self.model_id}"
-            )
-            
-            market_state = self._get_market_state()
-            formatted_prices = [
-                f"{coin}:${market_state[coin]['price']:.2f}"
-                for coin in market_state
-            ]
-            self._logger.debug(
-                f"Market state retrieved: {len(market_state)} coins, "
-                f"prices={formatted_prices}"
-            )
-            
-            current_prices = {coin: market_state[coin]['price'] for coin in market_state}
-            
-            portfolio = self.db.get_portfolio(self.model_id, current_prices)
-            self._logger.debug(
-                f"Portfolio: cash=${portfolio['cash']:.2f}, "
-                f"total_value=${portfolio['total_value']:.2f}, "
-                f"positions={len(portfolio['positions'])}, "
-                f"total_fees=${portfolio.get('total_fees', 0):.2f}"
-            )
-            
-            account_info = self._build_account_info(portfolio)
-            
-            decisions = self.ai_trader.make_decision(
-                market_state, portfolio, account_info
-            )
-            self._logger.info(
-                f"AI decisions for model_id={self.model_id}: "
-                f"{len(decisions)} signals generated"
-            )
-            
-            self.db.add_conversation(
-                self.model_id,
-                user_prompt=self._format_prompt(market_state, portfolio, account_info),
-                ai_response=json.dumps(decisions, ensure_ascii=False),
-                cot_trace=''
-            )
-            
-            execution_results = self._execute_decisions(decisions, market_state, portfolio)
-            
-            # Log execution results
-            for result in execution_results:
-                if 'error' in result:
-                    self._logger.warning(
-                        f"Trade execution failed for {result.get('coin', 'unknown')}: "
-                        f"{result['error']}"
-                    )
-                elif 'message' in result:
-                    self._logger.info(
-                        f"Trade executed: {result['message']}"
-                    )
-            
-            updated_portfolio = self.db.get_portfolio(self.model_id, current_prices)
-            self.db.record_account_value(
-                self.model_id,
-                updated_portfolio['total_value'],
-                updated_portfolio['cash'],
-                updated_portfolio['positions_value']
-            )
-            
-            self._logger.info(
-                f"Trading cycle completed for model_id={self.model_id}, "
-                f"new_total_value=${updated_portfolio['total_value']:.2f}"
-            )
-            
-            return {
-                'success': True,
-                'decisions': decisions,
-                'executions': execution_results,
-                'portfolio': updated_portfolio
-            }
-            
-        except ValueError as e:
-            self._logger.error(
-                f"Validation error in trading cycle for model_id={self.model_id}: {e}",
-                exc_info=True
-            )
-            raise
-        except KeyError as e:
-            self._logger.error(
-                f"Missing required data in trading cycle for model_id={self.model_id}: {e}",
-                exc_info=True
-            )
-            raise
-        except Exception as e:
-            self._logger.error(
-                f"Unexpected error in trading cycle for model_id={self.model_id}: {e}",
-                exc_info=True
-            )
-            raise
+        self._logger.debug(
+            f"Starting trading cycle for model_id={self.model_id}"
+        )
+        
+        market_state = self._get_market_state()
+        formatted_prices = [
+            f"{coin}:${market_state[coin]['price']:.2f}"
+            for coin in market_state
+        ]
+        self._logger.debug(
+            f"Market state retrieved: {len(market_state)} coins, "
+            f"prices={formatted_prices}"
+        )
+        
+        current_prices = {coin: market_state[coin]['price'] for coin in market_state}
+        
+        portfolio = self.db.get_portfolio(self.model_id, current_prices)
+        self._logger.debug(
+            f"Portfolio: cash=${portfolio['cash']:.2f}, "
+            f"total_value=${portfolio['total_value']:.2f}, "
+            f"positions={len(portfolio['positions'])}, "
+            f"total_fees=${portfolio.get('total_fees', 0):.2f}"
+        )
+        
+        account_info = self._build_account_info(portfolio)
+        
+        decisions = self.ai_trader.make_decision(
+            market_state, portfolio, account_info
+        )
+        self._logger.debug(
+            f"AI decisions for model_id={self.model_id}: "
+            f"{len(decisions)} signals generated"
+        )
+        
+        self.db.add_conversation(
+            self.model_id,
+            user_prompt=self._format_prompt(market_state, portfolio, account_info),
+            ai_response=json.dumps(decisions, ensure_ascii=False),
+            cot_trace=''
+        )
+        
+        execution_results = self._execute_decisions(decisions, market_state, portfolio)
+        
+        # Log execution results
+        for result in execution_results:
+            if 'error' in result:
+                self._logger.warning(
+                    f"Trade execution failed for {result.get('coin', 'unknown')}: "
+                    f"{result['error']}"
+                )
+            elif 'message' in result:
+                self._logger.debug(
+                    f"Trade executed: {result['message']}"
+                )
+        
+        updated_portfolio = self.db.get_portfolio(self.model_id, current_prices)
+        self.db.record_account_value(
+            self.model_id,
+            updated_portfolio['total_value'],
+            updated_portfolio['cash'],
+            updated_portfolio['positions_value']
+        )
+        
+        self._logger.debug(
+            f"Trading cycle completed for model_id={self.model_id}, "
+            f"new_total_value=${updated_portfolio['total_value']:.2f}"
+        )
+        
+        return {
+            'decisions': decisions,
+            'executions': execution_results,
+            'portfolio': updated_portfolio,
+        }
     
     def _get_market_state(self) -> Dict:
         """Get current market state with prices and indicators"""
@@ -207,40 +183,22 @@ class TradingEngine:
             
             signal = decision.get('signal', '').lower()
             
-            try:
-                if signal == SIGNAL_BUY:
-                    result = self._execute_buy(coin, decision, market_state, portfolio)
-                elif signal == SIGNAL_SELL:
-                    result = self._execute_sell(coin, decision, market_state, portfolio)
-                elif signal == SIGNAL_CLOSE:
-                    result = self._execute_close(coin, decision, market_state, portfolio)
-                elif signal == SIGNAL_HOLD:
-                    result = {'coin': coin, 'signal': SIGNAL_HOLD, 'message': 'Hold position'}
-                else:
-                    self._logger.warning(
-                        f"Unknown signal for {coin}: {signal}, "
-                        f"valid_signals=[{SIGNAL_BUY}, {SIGNAL_SELL}, {SIGNAL_CLOSE}, {SIGNAL_HOLD}]"
-                    )
-                    result = {'coin': coin, 'error': f'Unknown signal: {signal}'}
-                
-                results.append(result)
-                
-            except ValueError as e:
-                self._logger.error(
-                    f"Validation error executing {signal} for {coin}: {e}"
+            if signal == SIGNAL_BUY:
+                result = self._execute_buy(coin, decision, market_state, portfolio)
+            elif signal == SIGNAL_SELL:
+                result = self._execute_sell(coin, decision, market_state, portfolio)
+            elif signal == SIGNAL_CLOSE:
+                result = self._execute_close(coin, decision, market_state, portfolio)
+            elif signal == SIGNAL_HOLD:
+                result = {'coin': coin, 'signal': SIGNAL_HOLD, 'message': 'Hold position'}
+            else:
+                self._logger.warning(
+                    f"Unknown signal for {coin}: {signal}, "
+                    f"valid_signals=[{SIGNAL_BUY}, {SIGNAL_SELL}, {SIGNAL_CLOSE}, {SIGNAL_HOLD}]"
                 )
-                results.append({'coin': coin, 'error': f'Validation error: {str(e)}'})
-            except KeyError as e:
-                self._logger.error(
-                    f"Missing required field executing {signal} for {coin}: {e}"
-                )
-                results.append({'coin': coin, 'error': f'Missing field: {str(e)}'})
-            except Exception as e:
-                self._logger.error(
-                    f"Unexpected error executing {signal} for {coin}: {e}",
-                    exc_info=True
-                )
-                results.append({'coin': coin, 'error': f'Execution failed: {str(e)}'})
+                result = {'coin': coin, 'error': f'Unknown signal: {signal}'}
+
+            results.append(result)
         
         return results
     
@@ -261,14 +219,27 @@ class TradingEngine:
             ValueError: If quantity or leverage is invalid
             KeyError: If required market data is missing
         """
+        quantity_raw = decision.get('quantity', 0)
         try:
-            quantity = float(decision.get('quantity', 0))
-            leverage = int(decision.get('leverage', 1))
-        except (ValueError, TypeError) as e:
-            raise ValueError(f"Invalid quantity or leverage: {e}") from e
+            quantity = float(quantity_raw)
+        except (TypeError, ValueError):
+            self._logger.warning(
+                "Invalid quantity value for %s: %s", coin, quantity_raw
+            )
+            return {'coin': coin, 'error': f'Invalid quantity value: {quantity_raw}'}
+        
+        leverage_raw = decision.get('leverage', 1)
+        try:
+            leverage = int(leverage_raw)
+        except (TypeError, ValueError):
+            self._logger.warning(
+                "Invalid leverage value for %s: %s", coin, leverage_raw
+            )
+            return {'coin': coin, 'error': f'Invalid leverage value: {leverage_raw}'}
         
         if coin not in market_state:
-            raise KeyError(f"Market data not available for {coin}")
+            self._logger.warning("Market data not available for %s", coin)
+            return {'coin': coin, 'error': 'Market data not available'}
         
         price = market_state[coin]['price']
         
@@ -329,14 +300,27 @@ class TradingEngine:
             ValueError: If quantity or leverage is invalid
             KeyError: If required market data is missing
         """
+        quantity_raw = decision.get('quantity', 0)
         try:
-            quantity = float(decision.get('quantity', 0))
-            leverage = int(decision.get('leverage', 1))
-        except (ValueError, TypeError) as e:
-            raise ValueError(f"Invalid quantity or leverage: {e}") from e
+            quantity = float(quantity_raw)
+        except (TypeError, ValueError):
+            self._logger.warning(
+                "Invalid quantity value for %s: %s", coin, quantity_raw
+            )
+            return {'coin': coin, 'error': f'Invalid quantity value: {quantity_raw}'}
+        
+        leverage_raw = decision.get('leverage', 1)
+        try:
+            leverage = int(leverage_raw)
+        except (TypeError, ValueError):
+            self._logger.warning(
+                "Invalid leverage value for %s: %s", coin, leverage_raw
+            )
+            return {'coin': coin, 'error': f'Invalid leverage value: {leverage_raw}'}
         
         if coin not in market_state:
-            raise KeyError(f"Market data not available for {coin}")
+            self._logger.warning("Market data not available for %s", coin)
+            return {'coin': coin, 'error': 'Market data not available'}
         
         price = market_state[coin]['price']
         
@@ -406,7 +390,8 @@ class TradingEngine:
             return {'coin': coin, 'error': 'No position to close'}
         
         if coin not in market_state:
-            raise KeyError(f"Market data not available for {coin}")
+            self._logger.warning("Market data not available for %s", coin)
+            return {'coin': coin, 'error': 'Market data not available'}
         
         current_price = market_state[coin]['price']
         entry_price = position['avg_price']
@@ -433,7 +418,7 @@ class TradingEngine:
             current_price, position['leverage'], side, pnl=net_pnl, fee=trade_fee
         )
         
-        self._logger.info(
+        self._logger.debug(
             f"Closed {side} position: {coin}, "
             f"entry=${entry_price:.2f}, exit=${current_price:.2f}, "
             f"quantity={quantity:.4f}, gross_pnl=${gross_pnl:.2f}, "

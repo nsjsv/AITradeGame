@@ -18,8 +18,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+} from '@/components/ui/Dialog'
+import { Button } from '@/components/ui/Button'
 import { ExternalLinkIcon } from 'lucide-react'
 import type { UpdateInfo } from '@/lib/types'
 
@@ -34,15 +34,23 @@ export function UpdateModal({ open, onOpenChange, updateInfo }: UpdateModalProps
     return null
   }
 
-  // 格式化 Markdown 文本为简单的 HTML
+  // 格式化 Markdown 文本为简单的 HTML（先转义，避免注入）
   const formattedReleaseNotes = useMemo(() => {
     const markdown = updateInfo?.release_notes
     if (!markdown) {
       return '暂无发布说明'
     }
 
-    // 简单的 Markdown 格式化
-    let formatted = markdown
+    const escapeHtml = (value: string) =>
+      value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+
+    // 简单的 Markdown 格式化（在转义后的文本上替换）
+    let formatted = escapeHtml(markdown)
       // 标题
       .replace(/^### (.*$)/gim, '<h3 class="text-base font-semibold mt-4 mb-2">$1</h3>')
       .replace(/^## (.*$)/gim, '<h2 class="text-lg font-semibold mt-4 mb-2">$1</h2>')

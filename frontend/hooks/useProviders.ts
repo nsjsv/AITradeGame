@@ -35,7 +35,7 @@ export function useProviders(): UseProvidersReturn {
     try {
       const response = await apiClient.getProviders()
       
-      if (response.success && response.data) {
+      if (!response.error && response.data) {
         setProviders(response.data)
       } else {
         setError(response.error || '获取提供方列表失败')
@@ -56,7 +56,8 @@ export function useProviders(): UseProvidersReturn {
     try {
       const response = await apiClient.createProvider(data)
       
-      if (response.success) {
+      const isSuccess = !response.error
+      if (isSuccess) {
         await loadProviders()
         return true
       } else {
@@ -78,7 +79,8 @@ export function useProviders(): UseProvidersReturn {
     try {
       const response = await apiClient.deleteProvider(id)
       
-      if (response.success) {
+      const isSuccess = !response.error
+      if (isSuccess) {
         await loadProviders()
         return true
       } else {
@@ -100,7 +102,7 @@ export function useProviders(): UseProvidersReturn {
     try {
       const response = await apiClient.fetchProviderModels(data)
       
-      if (response.success && response.data) {
+      if (!response.error && response.data) {
         return response.data.models
       } else {
         const errorMsg = response.error || '获取模型列表失败'

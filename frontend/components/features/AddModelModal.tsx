@@ -18,16 +18,16 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
+} from '@/components/ui/Dialog'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+} from '@/components/ui/Select'
+import { Input } from '@/components/ui/Input'
+import { Button } from '@/components/ui/Button'
 import { useProviders } from '@/hooks/useProviders'
 import { useModels } from '@/hooks/useModels'
 import type { CreateModelRequest } from '@/lib/types'

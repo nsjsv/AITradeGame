@@ -102,7 +102,7 @@ Docker Compose 会自动启动 PostgreSQL，并通过 `postgres_data` 卷持久�
 - `MARKET_CACHE_DURATION`：市场数据缓存时间（秒，默认 5）
 - `MARKET_API_URL`：外部市场数据 API 地址（默认 CoinGecko）
 - `MARKET_HISTORY_ENABLED`：是否持久化历史行情（默认 True）
-- `MARKET_HISTORY_INTERVAL`：采样间隔（秒，默认 60）
+- `MARKET_HISTORY_INTERVAL`：采样间隔（秒，默认 5）
 - `MARKET_HISTORY_RESOLUTION`：K线分辨率（秒，默认 60）
 - `MARKET_HISTORY_MAX_POINTS`：历史接口返回的最大记录数（默认 500，硬上限 2000）
 - `MARKET_HISTORY_CACHE_TTL`：历史接口缓存时间（秒，默认 60，后续可插入 Redis）

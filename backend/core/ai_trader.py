@@ -10,6 +10,7 @@ from backend.config.constants import (
     ERROR_MSG_API_REQUEST_FAILED,
     ERROR_MSG_CONNECTION_ERROR,
 )
+from backend.utils.errors import ExternalServiceError
 
 
 class AITrader:
@@ -150,15 +151,42 @@ Analyze and output JSON only.
         except APIConnectionError as e:
             error_msg = ERROR_MSG_CONNECTION_ERROR
             self._logger.error(f"{error_msg}: {str(e)}", exc_info=True)
-            raise Exception(error_msg)
+            raise ExternalServiceError(
+                error_msg,
+                status_code=503,
+                details={
+                    "provider": self.api_url,
+                    "model": self.model_name,
+                    "error": str(e),
+                },
+            ) from e
         except APIError as e:
-            error_msg = ERROR_MSG_API_REQUEST_FAILED.format(detail=f"{e.status_code}: {e.message}")
+            status = getattr(e, "status_code", 502) or 502
+            message = getattr(e, "message", str(e)) or str(e)
+            error_msg = ERROR_MSG_API_REQUEST_FAILED.format(detail=f"{status}: {message}")
             self._logger.error(error_msg, exc_info=True)
-            raise Exception(error_msg)
+            raise ExternalServiceError(
+                error_msg,
+                status_code=status if isinstance(status, int) else 502,
+                details={
+                    "provider": self.api_url,
+                    "model": self.model_name,
+                    "status": status,
+                    "error": message,
+                },
+            ) from e
         except Exception as e:
             error_msg = f"LLM call failed: {str(e)}"
             self._logger.error(error_msg, exc_info=True)
-            raise Exception(error_msg)
+            raise ExternalServiceError(
+                error_msg,
+                status_code=500,
+                details={
+                    "provider": self.api_url,
+                    "model": self.model_name,
+                    "error": str(e),
+                },
+            ) from e
     
     def _parse_response(self, response: str) -> Dict:
         """Parse LLM response to extract trading decisions

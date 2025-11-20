@@ -9,6 +9,8 @@ from backend.config.constants import (
     HISTORY_CACHE_TTL,
     HISTORY_DEFAULT_LIMIT,
     HISTORY_MAX_LIMIT,
+    DEFAULT_TRADING_CONCURRENCY,
+    DEFAULT_MODEL_CYCLE_TIMEOUT,
 )
 
 
@@ -33,7 +35,7 @@ class Config:
     
     def _load_and_validate(self) -> None:
         """加载并验证所有配置"""
-        # Flask configuration
+        # API server configuration
         self.DEBUG = os.getenv('DEBUG', 'False') == 'True'
         self.HOST = os.getenv('HOST', '0.0.0.0')
         self.PORT = self._validate_port(os.getenv('PORT', '5000'))
@@ -79,6 +81,14 @@ class Config:
         
         # Auto trading
         self.AUTO_TRADING = os.getenv('AUTO_TRADING', 'True') == 'True'
+        self.TRADING_MAX_CONCURRENCY = self._validate_positive_int(
+            os.getenv('TRADING_MAX_CONCURRENCY', str(DEFAULT_TRADING_CONCURRENCY)),
+            'TRADING_MAX_CONCURRENCY'
+        )
+        self.MODEL_CYCLE_TIMEOUT = self._validate_positive_int(
+            os.getenv('MODEL_CYCLE_TIMEOUT', str(DEFAULT_MODEL_CYCLE_TIMEOUT)),
+            'MODEL_CYCLE_TIMEOUT'
+        )
         
         # Logging
         self.LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()
@@ -175,6 +185,8 @@ class Config:
             logger.debug(f"MARKET_HISTORY_CACHE_TTL: {self.MARKET_HISTORY_CACHE_TTL}")
             logger.debug(f"DEFAULT_COINS: {', '.join(self.DEFAULT_COINS)}")
             logger.debug(f"AUTO_TRADING: {self.AUTO_TRADING}")
+            logger.debug(f"TRADING_MAX_CONCURRENCY: {self.TRADING_MAX_CONCURRENCY}")
+            logger.debug(f"MODEL_CYCLE_TIMEOUT: {self.MODEL_CYCLE_TIMEOUT}")
             logger.debug(f"LOG_LEVEL: {self.LOG_LEVEL}")
             logger.debug("===================")
     

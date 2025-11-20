@@ -23,12 +23,12 @@ export function useBackendStatus(interval: number = 15000): void {
         return
       }
 
-      if (response.success && response.data?.status === 'ok') {
+      if (!response.error && response.data?.status === 'ok') {
         setBackendStatus(true, null)
       } else {
         setBackendStatus(
           false,
-          response.error || response.data?.message || '后端服务不可用'
+          response.error || '后端服务不可用'
         )
       }
     }
@@ -48,10 +48,10 @@ export function useBackendStatus(interval: number = 15000): void {
         return
       }
 
-      if (!response.success || response.data?.status !== 'ok') {
+      if (response.error || !response.data || response.data.status !== 'ok') {
         setBackendStatus(
           false,
-          response.error || response.data?.message || '行情服务不可用'
+          response.error || '行情服务不可用'
         )
       }
     }

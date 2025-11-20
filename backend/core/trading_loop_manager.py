@@ -6,8 +6,9 @@
 import threading
 import time
 import logging
+from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict
 
 from backend.data.database import DatabaseInterface
 from backend.services.trading_service import TradingService
@@ -27,6 +28,8 @@ from backend.config.constants import (
     LOG_MSG_MODEL_FAILED,
     LOG_MSG_TRADE_EXECUTED,
     ERROR_MSG_TRADING_LOOP_ERROR,
+    DEFAULT_TRADING_CONCURRENCY,
+    DEFAULT_MODEL_CYCLE_TIMEOUT,
 )
 
 
@@ -36,7 +39,13 @@ class TradingLoopManager:
     使用 threading.Event 实现优雅关闭，支持指数退避重试机制
     """
     
-    def __init__(self, trading_service: TradingService, db: DatabaseInterface):
+    def __init__(
+        self,
+        trading_service: TradingService,
+        db: DatabaseInterface,
+        max_workers: Optional[int] = None,
+        model_timeout: Optional[int] = None,
+    ):
         """初始化交易循环管理器
         
         Args:
@@ -49,6 +58,8 @@ class TradingLoopManager:
         self._thread: Optional[threading.Thread] = None
         self._logger = logging.getLogger(__name__)
         self._retry_delay = RETRY_INITIAL_DELAY
+        self._max_workers = max(1, max_workers or DEFAULT_TRADING_CONCURRENCY)
+        self._model_timeout = max(1, model_timeout or DEFAULT_MODEL_CYCLE_TIMEOUT)
     
     def start(self) -> None:
         """启动交易循环
@@ -134,7 +145,7 @@ class TradingLoopManager:
                 )
                 sleep_seconds = interval_minutes * 60
                 
-                self._logger.info(f"等待 {sleep_seconds} 秒进行下一个周期")
+                self._logger.debug(f"等待 {sleep_seconds} 秒进行下一个周期")
                 
                 # 使用 Event.wait() 以便能快速响应停止信号
                 if self._stop_event.wait(timeout=sleep_seconds):
@@ -161,61 +172,74 @@ class TradingLoopManager:
         
         遍历所有活动的交易引擎并执行交易周期
         """
-        self._logger.info("=" * 60)
-        self._logger.info(f"{LOG_MSG_CYCLE_START} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        self._logger.info(f"活动模型数: {len(self.trading_service.engines)}")
-        self._logger.info("=" * 60)
+        self._logger.debug("=" * 60)
+        self._logger.debug(f"{LOG_MSG_CYCLE_START} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        self._logger.debug(f"活动模型数: {len(self.trading_service.engines)}")
+        self._logger.debug("=" * 60)
         
         # 执行每个模型的交易周期
-        for model_id, engine in list(self.trading_service.engines.items()):
-            # 检查是否收到停止信号
-            if self._stop_event.is_set():
-                self._logger.info("收到停止信号，中断交易周期")
-                break
-            
-            try:
-                self._logger.info(LOG_MSG_MODEL_EXEC.format(model_id=model_id))
-                result = engine.execute_trading_cycle()
-                
-                if result.get('success'):
-                    self._logger.info(LOG_MSG_MODEL_SUCCESS.format(model_id=model_id))
-                    
-                    # 记录交易执行结果
-                    if result.get('executions'):
-                        for exec_result in result['executions']:
-                            signal = exec_result.get('signal', 'unknown')
-                            coin = exec_result.get('coin', 'unknown')
-                            msg = exec_result.get('message', '')
-                            
-                            if signal != 'hold':
-                                self._logger.info(
-                                    LOG_MSG_TRADE_EXECUTED.format(
-                                        coin=coin,
-                                        message=msg
-                                    )
-                                )
-                else:
-                    error = result.get('error', 'Unknown error')
-                    self._logger.warning(
+        engines = list(self.trading_service.engines.items())
+        if not engines:
+            self._logger.debug("没有可执行的交易模型，跳过本周期")
+            return
+
+        worker_count = max(1, min(self._max_workers, len(engines)))
+        futures = {}
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            for model_id, engine in engines:
+                if self._stop_event.is_set():
+                    self._logger.info("收到停止信号，中断交易周期")
+                    break
+                self._logger.debug(LOG_MSG_MODEL_EXEC.format(model_id=model_id))
+                futures[executor.submit(engine.execute_trading_cycle)] = model_id
+
+            if not futures:
+                return
+
+            done, pending = wait(set(futures.keys()), timeout=self._model_timeout)
+
+            for future in done:
+                model_id = futures[future]
+                try:
+                    result = future.result()
+                    self._handle_execution_result(model_id, result)
+                except Exception as e:
+                    self._logger.error(
                         LOG_MSG_MODEL_FAILED.format(
                             model_id=model_id,
-                            error=error
-                        )
+                            error=str(e)
+                        ),
+                        exc_info=True
                     )
-                    
-            except Exception as e:
+
+            for future in pending:
+                model_id = futures[future]
                 self._logger.error(
-                    LOG_MSG_MODEL_FAILED.format(
-                        model_id=model_id,
-                        error=str(e)
-                    ),
-                    exc_info=True
+                    "模型 %s 执行超时（>%s 秒），将跳过本周期并在下次重试",
+                    model_id,
+                    self._model_timeout,
                 )
-                continue
+                future.cancel()
         
-        self._logger.info("=" * 60)
-        self._logger.info(LOG_MSG_CYCLE_COMPLETE)
-        self._logger.info("=" * 60)
+        self._logger.debug("=" * 60)
+        self._logger.debug(LOG_MSG_CYCLE_COMPLETE)
+        self._logger.debug("=" * 60)
+
+    def _handle_execution_result(self, model_id: int, result: Dict) -> None:
+        """记录模型执行成功的日志并输出交易明细。"""
+        self._logger.debug(LOG_MSG_MODEL_SUCCESS.format(model_id=model_id))
+        executions = result.get('executions') or []
+        for exec_result in executions:
+            signal = exec_result.get('signal', 'unknown')
+            coin = exec_result.get('coin', 'unknown')
+            msg = exec_result.get('message', '')
+            if signal != 'hold':
+                self._logger.debug(
+                    LOG_MSG_TRADE_EXECUTED.format(
+                        coin=coin,
+                        message=msg
+                    )
+                )
     
     def _calculate_backoff_delay(self) -> float:
         """计算指数退避延迟（私有方法）

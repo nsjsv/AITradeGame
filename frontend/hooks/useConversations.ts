@@ -18,7 +18,9 @@ interface UseConversationsReturn {
 }
 
 export function useConversations(limit: number = 20): UseConversationsReturn {
-  const { selectedModelId, isAggregatedView, config } = useAppStore()
+  const selectedModelId = useAppStore((state) => state.selectedModelId)
+  const isAggregatedView = useAppStore((state) => state.isAggregatedView)
+  const config = useAppStore((state) => state.config)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -44,7 +46,7 @@ export function useConversations(limit: number = 20): UseConversationsReturn {
     try {
       const response = await apiClient.getModelConversations(selectedModelId, limit)
       
-      if (response.success && response.data) {
+      if (!response.error && response.data) {
         setConversations(response.data)
       } else {
         setError(response.error || '获取对话记录失败')
