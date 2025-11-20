@@ -69,85 +69,66 @@ export const TradesTable = React.memo(function TradesTable() {
   // 空状态
   if (!isLoading && trades.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>交易记录</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-muted-foreground text-sm">暂无交易记录</p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="rounded-md border bg-card p-8 text-center text-sm text-muted-foreground shadow-sm">
+        暂无交易记录
+      </div>
     )
   }
 
   // 加载状态
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>交易记录</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-12">
-            <p className="text-muted-foreground text-sm">加载中...</p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="rounded-md border bg-card p-8 text-center text-sm text-muted-foreground shadow-sm">
+        加载中...
+      </div>
     )
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>交易记录</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>时间</TableHead>
-              <TableHead>币种</TableHead>
-              <TableHead>操作</TableHead>
-              <TableHead className="text-right">数量</TableHead>
-              <TableHead className="text-right">价格</TableHead>
-              <TableHead className="text-right">盈亏</TableHead>
-              <TableHead className="text-right">费用</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {trades.map((trade: Trade) => {
-              const signalBadge = getSignalBadge(trade.signal)
-              return (
-                <TableRow key={trade.id}>
-                  <TableCell className="text-muted-foreground text-xs">
-                    {formatTimestamp(trade.timestamp, 'datetime')}
-                  </TableCell>
-                  <TableCell className="font-medium">{trade.coin}</TableCell>
-                  <TableCell>
-                    <Badge variant={signalBadge.variant}>
-                      {signalBadge.label}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {formatQuantity(trade.quantity)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {formatPrice(trade.price)}
-                  </TableCell>
-                  <TableCell className={`text-right font-medium ${getPnlColorClass(trade.pnl)}`}>
-                    {formatPrice(trade.pnl)}
-                  </TableCell>
-                  <TableCell className="text-right text-muted-foreground">
-                    {formatPrice(trade.fee)}
-                  </TableCell>
-                </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+    <div className="rounded-md border bg-card shadow-sm">
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="w-[160px]">时间</TableHead>
+            <TableHead>币种</TableHead>
+            <TableHead>操作</TableHead>
+            <TableHead className="text-right">数量</TableHead>
+            <TableHead className="text-right">价格</TableHead>
+            <TableHead className="text-right">盈亏</TableHead>
+            <TableHead className="text-right">费用</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {trades.map((trade: Trade) => {
+            const signalBadge = getSignalBadge(trade.signal)
+            return (
+              <TableRow key={trade.id}>
+                <TableCell className="text-muted-foreground text-xs font-mono">
+                  {formatTimestamp(trade.timestamp, 'datetime')}
+                </TableCell>
+                <TableCell className="font-medium">{trade.coin}</TableCell>
+                <TableCell>
+                  <Badge variant={signalBadge.variant}>
+                    {signalBadge.label}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right font-mono text-xs">
+                  {formatQuantity(trade.quantity)}
+                </TableCell>
+                <TableCell className="text-right font-mono text-xs">
+                  {formatPrice(trade.price)}
+                </TableCell>
+                <TableCell className={`text-right font-mono text-xs font-medium ${getPnlColorClass(trade.pnl)}`}>
+                  {formatPrice(trade.pnl)}
+                </TableCell>
+                <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                  {formatPrice(trade.fee)}
+                </TableCell>
+              </TableRow>
+            )
+          })}
+        </TableBody>
+      </Table>
+    </div>
   )
 })

@@ -68,97 +68,76 @@ export const ModelList = React.memo(function ModelList() {
 
   if (isLoading && models.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>交易模型</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-sm text-muted-foreground">加载中...</div>
-        </CardContent>
-      </Card>
+      <div className="p-4 text-sm text-muted-foreground">加载中...</div>
     )
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>交易模型</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {models.length === 0 ? (
-          <div className="py-8 text-center text-sm text-muted-foreground">
-            暂无模型，请添加新模型
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {/* 聚合视图选项 */}
-            <button
-              onClick={handleSelectAggregated}
+    <div className="space-y-1">
+      {models.length === 0 ? (
+        <div className="py-8 text-center text-sm text-muted-foreground">
+          暂无模型，请添加新模型
+        </div>
+      ) : (
+        <>
+          {/* 聚合视图选项 */}
+          <button
+            onClick={handleSelectAggregated}
+            className={cn(
+              'w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors',
+              'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+              isAggregatedView
+                ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+                : 'text-sidebar-foreground'
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <TrendingUp className="size-4" />
+              <span>聚合视图</span>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {models.length}
+            </span>
+          </button>
+
+          {/* 模型列表 */}
+          {models.map((model) => (
+            <div
+              key={model.id}
+              onClick={() => handleSelectModel(model.id)}
               className={cn(
-                'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors',
-                'hover:bg-accent',
-                isAggregatedView
-                  ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                  : 'bg-background'
+                'group relative flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors cursor-pointer',
+                'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                selectedModelId === model.id
+                  ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+                  : 'text-sidebar-foreground'
               )}
             >
-              <div className="flex items-center gap-2">
-                <TrendingUp className="size-4" />
-                <span className="font-medium">聚合视图</span>
-              </div>
-              <span className="text-xs opacity-75">
-                {models.length} 个模型
-              </span>
-            </button>
-
-            {/* 模型列表 */}
-            {
-            models.map((model) => (
-              <div
-                key={model.id}
-                onClick={() => handleSelectModel(model.id)}
-                className={cn(
-                  'group relative flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer',
-                  'hover:bg-accent',
-                  selectedModelId === model.id
-                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                    : 'bg-background'
-                )}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{model.name}</div>
-                  <div
-                    className={cn(
-                      'text-xs truncate',
-                      selectedModelId === model.id
-                        ? 'opacity-75'
-                        : 'text-muted-foreground'
-                    )}
-                  >
-                    {model.model_name}
-                  </div>
+              <div className="flex-1 min-w-0">
+                <div className="truncate">{model.name}</div>
+                <div className="text-xs text-muted-foreground truncate">
+                  {model.model_name}
                 </div>
-
-                {/* 删除按钮 */}
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={(e) => handleDeleteModel(model.id, e)}
-                  disabled={deletingId === model.id}
-                  className={cn(
-                    'opacity-0 group-hover:opacity-100 transition-opacity',
-                    selectedModelId === model.id && 'text-primary-foreground hover:text-primary-foreground',
-                    deletingId === model.id && 'opacity-50'
-                  )}
-                  title="删除模型"
-                >
-                  <Trash2 className="size-4" />
-                </Button>
               </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+
+              {/* 删除按钮 */}
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={(e) => handleDeleteModel(model.id, e)}
+                disabled={deletingId === model.id}
+                className={cn(
+                  'h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity',
+                  deletingId === model.id && 'opacity-50'
+                )}
+                title="删除模型"
+              >
+                <Trash2 className="size-3" />
+              </Button>
+            </div>
+          ))}
+        </>
+      )}
+    </div>
   )
 })

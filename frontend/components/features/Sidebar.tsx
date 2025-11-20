@@ -41,7 +41,7 @@ export const Sidebar = React.memo(function Sidebar({ className }: SidebarProps) 
       <aside
         className={cn(
           // 基础样式
-          'fixed left-0 top-16 z-40 h-[calc(100vh-4rem)] w-80 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950',
+          'fixed left-0 top-0 z-40 h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground',
           // 移动端：可滑动显示/隐藏
           'transition-transform duration-300 lg:translate-x-0',
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full',
@@ -51,13 +51,24 @@ export const Sidebar = React.memo(function Sidebar({ className }: SidebarProps) 
         )}
       >
         <div className="flex h-full flex-col overflow-hidden">
+          {/* 顶部标题区域 - 仅在移动端显示，桌面端在 Header 中 */}
+          <div className="flex h-14 items-center border-b border-sidebar-border px-4 lg:hidden">
+             <span className="font-semibold">AI Trade Game</span>
+          </div>
+
           {/* 模型列表区域 */}
-          <div className="flex-1 overflow-y-auto border-b border-gray-200 p-4 dark:border-gray-800">
+          <div className="flex-1 overflow-y-auto p-2">
+            <div className="mb-2 px-2 py-1 text-xs font-medium text-muted-foreground">
+              模型列表
+            </div>
             <ModelList />
           </div>
 
           {/* 市场价格区域 */}
-          <div className="flex-shrink-0 overflow-y-auto p-4">
+          <div className="flex-shrink-0 border-t border-sidebar-border bg-sidebar-accent/50 p-2">
+             <div className="mb-2 px-2 text-xs font-medium text-muted-foreground">
+              市场概览
+            </div>
             <MarketPrices />
           </div>
         </div>

@@ -77,138 +77,86 @@ export const Header = React.memo(function Header({
   }, [onRefresh, isRefreshing])
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
-      <div className="flex h-16 items-center justify-between px-4 sm:px-6">
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="flex h-14 items-center justify-between px-4">
         {/* 左侧：菜单按钮 + 标题 + 状态 */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {/* 移动端菜单按钮 */}
           <Button
             variant="ghost"
             size="icon-sm"
             onClick={toggleSidebar}
-            className="lg:hidden"
+            className="lg:hidden -ml-2"
             aria-label="切换侧边栏"
           >
-            <Menu className="size-5" />
+            <Menu className="size-4" />
           </Button>
 
-          {/* 应用标题 */}
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100 sm:text-xl">
-              AI Trade Game
-            </h1>
-            
-            {/* 运行状态指示器 */}
-            <div className="flex items-center gap-1.5">
-              <div
-                className={`size-2 rounded-full ${
-                  backendOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+          {/* 面包屑导航风格的标题 */}
+          <div className="flex items-center gap-2 text-sm">
+            <span className="font-medium text-foreground">AI Trade Game</span>
+            <span className="text-muted-foreground">/</span>
+            <div className="flex items-center gap-2">
+               <div
+                className={`size-1.5 rounded-full ${
+                  backendOnline ? 'bg-green-500' : 'bg-red-500'
                 }`}
-                aria-label={backendOnline ? '运行中' : '后端离线'}
-                title={
-                  backendOnline
-                    ? backendLastChecked
-                      ? `后端正常（${new Date(backendLastChecked).toLocaleTimeString()}）`
-                      : '后端正常'
-                    : backendError || '无法连接到后端服务'
-                }
+                title={backendOnline ? '系统正常' : '系统离线'}
               />
-              <span className="hidden text-sm text-gray-600 dark:text-gray-400 sm:inline">
-                {backendOnline ? '运行中' : '后端离线'}
+              <span className="text-muted-foreground">
+                {backendOnline ? 'Dashboard' : 'Offline'}
               </span>
             </div>
-            {!backendOnline && backendError && (
-              <span className="hidden text-xs font-medium text-red-600 dark:text-red-400 sm:inline">
-                {backendError}
-              </span>
-            )}
           </div>
         </div>
 
         {/* 右侧：操作按钮 */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           {/* 刷新按钮 */}
           <Button
             variant="ghost"
-            size="icon-sm"
+            size="sm"
             onClick={handleRefresh}
             disabled={isRefreshing}
-            aria-label="刷新数据"
-            title="刷新数据"
+            className="h-8 px-2 text-muted-foreground hover:text-foreground"
           >
             <RefreshCw
-              className={`size-4 ${isRefreshing ? 'animate-spin' : ''}`}
+              className={`mr-1 size-3.5 ${isRefreshing ? 'animate-spin' : ''}`}
             />
+            <span className="hidden sm:inline text-xs">刷新</span>
           </Button>
 
-          {/* 更新通知按钮 */}
-          {hasUpdate && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={onOpenUpdate}
-              className="relative"
-              aria-label="有可用更新"
-              title="有可用更新"
-            >
-              <Bell className="size-4" />
-              <span className="absolute right-1 top-1 size-2 rounded-full bg-red-500" />
-            </Button>
-          )}
+          <div className="mx-2 h-4 w-[1px] bg-border" />
 
           {/* 添加模型按钮 */}
           <Button
             variant="ghost"
             size="sm"
             onClick={onOpenAddModel}
-            className="hidden sm:inline-flex"
+            className="h-8 px-2 text-muted-foreground hover:text-foreground"
           >
-            <Plus className="size-4" />
-            <span>添加模型</span>
+            <Plus className="mr-1 size-3.5" />
+            <span className="hidden sm:inline text-xs">新建模型</span>
           </Button>
 
-          {/* 移动端添加模型按钮 */}
+          {/* API 提供方按钮 */}
           <Button
             variant="ghost"
-            size="icon-sm"
-            onClick={onOpenAddModel}
-            className="sm:hidden"
-            aria-label="添加模型"
-            title="添加模型"
-          >
-            <Plus className="size-4" />
-          </Button>
-
-          {/* API 提供方按钮 - 仅桌面端显示文字 */}
-          <Button
-            variant="outline"
             size="sm"
             onClick={onOpenApiProvider}
-            className="hidden md:inline-flex"
+            className="hidden md:inline-flex h-8 px-2 text-muted-foreground hover:text-foreground"
           >
-            API 提供方
+            <span className="text-xs">API 设置</span>
           </Button>
+
+          <div className="mx-2 h-4 w-[1px] bg-border" />
 
           {/* 暗黑模式切换按钮 */}
           <Button
             variant="ghost"
             size="icon-sm"
             onClick={toggleTheme}
-            aria-label={
-              mounted
-                ? theme === 'dark'
-                  ? '切换到浅色模式'
-                  : '切换到暗黑模式'
-                : '切换主题'
-            }
-            title={
-              mounted
-                ? theme === 'dark'
-                  ? '切换到浅色模式'
-                  : '切换到暗黑模式'
-                : '切换主题'
-            }
-            disabled={!mounted}
+            className="text-muted-foreground hover:text-foreground"
           >
             {mounted ? (
               theme === 'dark' ? (
@@ -217,7 +165,7 @@ export const Header = React.memo(function Header({
                 <Moon className="size-4" />
               )
             ) : (
-              <Sun className="size-4 opacity-0" aria-hidden="true" />
+              <Sun className="size-4 opacity-0" />
             )}
           </Button>
 
@@ -226,19 +174,17 @@ export const Header = React.memo(function Header({
             variant="ghost"
             size="icon-sm"
             onClick={onOpenSettings}
-            aria-label="设置"
-            title="设置"
+            className="text-muted-foreground hover:text-foreground"
           >
             <Settings className="size-4" />
           </Button>
-
+          
           {/* GitHub 链接 */}
           <Button
             variant="ghost"
             size="icon-sm"
             asChild
-            aria-label="访问 GitHub"
-            title="访问 GitHub"
+            className="text-muted-foreground hover:text-foreground"
           >
             <a
               href="https://github.com/yourusername/aitradegame"

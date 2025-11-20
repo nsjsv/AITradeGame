@@ -4,7 +4,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  "inline-flex items-center rounded-sm border px-2 py-0.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
   {
     variants: {
       variant: {
@@ -16,11 +16,11 @@ const badgeVariants = cva(
           "border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80",
         outline: "text-foreground",
         success:
-          "border-transparent bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+          "border-transparent bg-[#e3fcef] text-[#0c5132] dark:bg-[#1c3829] dark:text-[#85e0b7]", // Notion Green
         warning:
-          "border-transparent bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
+          "border-transparent bg-[#fff4de] text-[#8f6424] dark:bg-[#3d311f] dark:text-[#e6c288]", // Notion Orange
         info:
-          "border-transparent bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+          "border-transparent bg-[#e6f3f7] text-[#1c5b6e] dark:bg-[#1f333b] dark:text-[#85c7db]", // Notion Blue
       },
     },
     defaultVariants: {

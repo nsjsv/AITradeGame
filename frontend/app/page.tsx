@@ -59,71 +59,90 @@ export default function HomePage() {
   return (
     <>
       <PageLoadingOverlay show={isLoading} message="正在初始化界面，请稍候…" />
-      <div className="flex h-screen flex-col bg-background text-foreground">
-        <Header 
-          onRefresh={handleRefresh}
-          onOpenSettings={() => openModal('settings')}
-          onOpenAddModel={() => openModal('addModel')}
-          onOpenApiProvider={() => openModal('apiProvider')}
-          onOpenUpdate={() => openModal('update')}
-        />
-        <div className="flex flex-1 overflow-hidden">
-          <Sidebar />
-          <main className="flex-1 overflow-y-auto bg-background p-4 md:p-6">
-            <div className="mx-auto flex max-w-7xl flex-col gap-4">
-              {isRefreshing && (
-                <div className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-card/80 px-4 py-1 text-xs text-muted-foreground shadow-soft backdrop-blur">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-foreground/70" />
-                  <span>正在同步最新账户数据...</span>
-                </div>
-              )}
+      <div className="flex h-screen w-full bg-background text-foreground">
+        <Sidebar />
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <Header
+            onRefresh={handleRefresh}
+            onOpenSettings={() => openModal('settings')}
+            onOpenAddModel={() => openModal('addModel')}
+            onOpenApiProvider={() => openModal('apiProvider')}
+            onOpenUpdate={() => openModal('update')}
+          />
+          <main className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10">
+            <div className="mx-auto max-w-6xl space-y-8">
+              {/* 页面标题区域 */}
+              <div className="flex items-center justify-between">
+                 <div className="space-y-1">
+                    <h2 className="text-2xl font-semibold tracking-tight">Dashboard</h2>
+                    <p className="text-sm text-muted-foreground">
+                      {isAggregatedView ? '全平台资产概览' : '模型详细数据监控'}
+                    </p>
+                 </div>
+                 {isRefreshing && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>同步中...</span>
+                  </div>
+                )}
+              </div>
+
               <div
                 className={cn(
-                  'space-y-6 transition-all duration-300',
-                  isRefreshing && 'blur-[1px] opacity-70'
+                  'space-y-8 transition-all duration-300',
+                  isRefreshing && 'opacity-60'
                 )}
               >
                 {/* 统计卡片网格 */}
                 <StatsGrid portfolio={portfolio} isLoading={isLoading} />
 
-              {/* 账户价值图表 */}
-              <AccountChart 
-                data={chartData} 
-                type={isAggregatedView ? 'aggregated' : 'single'}
-                isLoading={isLoading}
-              />
-
-              {/* 数据表格 - 仅在非聚合视图显示 */}
-              {!isAggregatedView && (
-                <Tabs defaultValue="positions" className="w-full">
-                  <TabsList>
-                    <TabsTrigger value="positions">持仓</TabsTrigger>
-                    <TabsTrigger value="trades">交易记录</TabsTrigger>
-                    <TabsTrigger value="conversations">AI 对话</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="positions" className="mt-4">
-                    <PositionsTable
-                      portfolio={portfolio}
+                {/* 账户价值图表 */}
+                <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+                  <div className="p-6 pb-0">
+                    <h3 className="font-semibold leading-none tracking-tight">资产趋势</h3>
+                    <p className="text-sm text-muted-foreground mt-1">过去 24 小时净值变化</p>
+                  </div>
+                  <div className="p-6 pt-4">
+                    <AccountChart
+                      data={chartData}
+                      type={isAggregatedView ? 'aggregated' : 'single'}
                       isLoading={isLoading}
                     />
-                  </TabsContent>
-                  <TabsContent value="trades" className="mt-4">
-                    <TradesTable />
-                  </TabsContent>
-                  <TabsContent value="conversations" className="mt-4">
-                    <ConversationsList />
-                  </TabsContent>
-                </Tabs>
-              )}
+                  </div>
+                </div>
+
+                {/* 数据表格 - 仅在非聚合视图显示 */}
+                {!isAggregatedView && (
+                  <Tabs defaultValue="positions" className="w-full space-y-4">
+                    <TabsList className="bg-muted/50 p-1">
+                      <TabsTrigger value="positions" className="text-xs">持仓管理</TabsTrigger>
+                      <TabsTrigger value="trades" className="text-xs">交易历史</TabsTrigger>
+                      <TabsTrigger value="conversations" className="text-xs">AI 决策日志</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="positions" className="space-y-4">
+                      <PositionsTable
+                        portfolio={portfolio}
+                        isLoading={isLoading}
+                      />
+                    </TabsContent>
+                    <TabsContent value="trades" className="space-y-4">
+                      <TradesTable />
+                    </TabsContent>
+                    <TabsContent value="conversations" className="space-y-4">
+                      <ConversationsList />
+                    </TabsContent>
+                  </Tabs>
+                )}
 
                 {/* 聚合视图提示 */}
                 {isAggregatedView && (
-                  <div className="rounded-2xl border border-border bg-card/80 p-8 text-center shadow-soft">
-                    <p className="text-base text-foreground/80">
-                      聚合视图模式下，仅显示所有模型的汇总数据和对比图表
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      选择单个模型以查看详细的持仓、交易记录和 AI 对话
+                  <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center animate-in fade-in-50">
+                    <div className="rounded-full bg-muted/50 p-3">
+                       <Loader2 className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <h3 className="mt-4 text-lg font-semibold">聚合视图模式</h3>
+                    <p className="mt-2 text-sm text-muted-foreground max-w-sm">
+                      当前显示所有模型的汇总数据。如需查看特定模型的详细持仓和交易记录，请在左侧侧边栏选择对应模型。
                     </p>
                   </div>
                 )}

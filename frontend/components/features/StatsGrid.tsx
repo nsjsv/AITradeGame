@@ -34,22 +34,21 @@ interface StatCardProps {
  */
 const StatCard = React.memo(function StatCard({ title, value, icon, colorClass, description }: StatCardProps) {
   return (
-    <Card>
-      <CardContent className="flex items-center gap-4 py-4">
-        {/* 图标 */}
-        <div className="flex size-12 items-center justify-center rounded-lg bg-muted">
-          {icon}
-        </div>
-
-        {/* 内容 */}
-        <div className="flex-1 min-w-0">
-          <div className="text-sm text-muted-foreground">{title}</div>
-          <div className={cn('text-2xl font-bold font-mono truncate', colorClass)}>
-            {value}
+    <Card className="overflow-hidden border-none shadow-sm hover:shadow-md transition-all duration-200">
+      <CardContent className="p-6">
+        <div className="flex items-start justify-between">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+            <div className={cn('text-2xl font-semibold tracking-tight', colorClass)}>
+              {value}
+            </div>
+            {description && (
+              <p className="text-xs text-muted-foreground">{description}</p>
+            )}
           </div>
-          {description && (
-            <div className="text-xs text-muted-foreground mt-0.5">{description}</div>
-          )}
+          <div className="rounded-md bg-muted/50 p-2 text-muted-foreground">
+            {icon}
+          </div>
         </div>
       </CardContent>
     </Card>

@@ -41,90 +41,71 @@ export const PositionsTable = React.memo(function PositionsTable({
   // 空状态
   if (!isLoading && positions.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>当前持仓</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-muted-foreground text-sm">暂无持仓</p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="rounded-md border bg-card p-8 text-center text-sm text-muted-foreground shadow-sm">
+        暂无持仓
+      </div>
     )
   }
 
   // 加载状态
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>当前持仓</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-12">
-            <p className="text-muted-foreground text-sm">加载中...</p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="rounded-md border bg-card p-8 text-center text-sm text-muted-foreground shadow-sm">
+        加载中...
+      </div>
     )
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>当前持仓</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>币种</TableHead>
-              <TableHead>方向</TableHead>
-              <TableHead className="text-right">数量</TableHead>
-              <TableHead className="text-right">均价</TableHead>
-              <TableHead className="text-right">当前价</TableHead>
-              <TableHead className="text-right">杠杆</TableHead>
-              <TableHead className="text-right">盈亏</TableHead>
+    <div className="rounded-md border bg-card shadow-sm">
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="w-[100px]">币种</TableHead>
+            <TableHead>方向</TableHead>
+            <TableHead className="text-right">数量</TableHead>
+            <TableHead className="text-right">均价</TableHead>
+            <TableHead className="text-right">当前价</TableHead>
+            <TableHead className="text-right">杠杆</TableHead>
+            <TableHead className="text-right">盈亏</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {positions.map((position: Position, index: number) => (
+            <TableRow key={`${position.coin}-${position.side}-${index}`}>
+              <TableCell className="font-medium">{position.coin}</TableCell>
+              <TableCell>
+                <span
+                  className={
+                    position.side === 'long'
+                      ? 'text-profit font-medium'
+                      : 'text-loss font-medium'
+                  }
+                >
+                  {position.side === 'long' ? '多' : '空'}
+                </span>
+              </TableCell>
+              <TableCell className="text-right font-mono text-xs">
+                {formatQuantity(position.quantity)}
+              </TableCell>
+              <TableCell className="text-right font-mono text-xs">
+                {formatPrice(position.avg_price)}
+              </TableCell>
+              <TableCell className="text-right font-mono text-xs">
+                {position.current_price !== null
+                  ? formatPrice(position.current_price)
+                  : '-'}
+              </TableCell>
+              <TableCell className="text-right text-xs text-muted-foreground">
+                {position.leverage}x
+              </TableCell>
+              <TableCell className={`text-right font-mono text-xs font-medium ${getPnlColorClass(position.pnl)}`}>
+                {formatPrice(position.pnl)}
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {positions.map((position: Position, index: number) => (
-              <TableRow key={`${position.coin}-${position.side}-${index}`}>
-                <TableCell className="font-medium">{position.coin}</TableCell>
-                <TableCell>
-                  <span
-                    className={
-                      position.side === 'long'
-                        ? 'text-profit font-medium'
-                        : 'text-loss font-medium'
-                    }
-                  >
-                    {position.side === 'long' ? '多' : '空'}
-                  </span>
-                </TableCell>
-                <TableCell className="text-right">
-                  {formatQuantity(position.quantity)}
-                </TableCell>
-                <TableCell className="text-right">
-                  {formatPrice(position.avg_price)}
-                </TableCell>
-                <TableCell className="text-right">
-                  {position.current_price !== null
-                    ? formatPrice(position.current_price)
-                    : '-'}
-                </TableCell>
-                <TableCell className="text-right">
-                  {position.leverage}x
-                </TableCell>
-                <TableCell className={`text-right font-medium ${getPnlColorClass(position.pnl)}`}>
-                  {formatPrice(position.pnl)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   )
 })

@@ -52,84 +52,63 @@ export const MarketPrices = React.memo(function MarketPrices() {
 
   if (isLoading && coins.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>市场价格</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-sm text-muted-foreground">加载中...</div>
-        </CardContent>
-      </Card>
+      <div className="p-4 text-sm text-muted-foreground">加载中...</div>
     )
   }
 
   if (error && coins.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>市场价格</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-sm text-destructive">{error}</div>
-        </CardContent>
-      </Card>
+      <div className="p-4 text-sm text-destructive">{error}</div>
     )
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>市场价格</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {coins.length === 0 ? (
-          <div className="text-sm text-muted-foreground">暂无市场数据</div>
-        ) : (
-          <div className="space-y-3">
-            {coins.map((coin) => {
-              const data = prices[coin]
-              const isPositive = data.change_24h >= 0
+    <div className="space-y-1">
+      {coins.length === 0 ? (
+        <div className="p-4 text-sm text-muted-foreground">暂无市场数据</div>
+      ) : (
+        <div className="space-y-1">
+          {coins.map((coin) => {
+            const data = prices[coin]
+            const isPositive = data.change_24h >= 0
 
-              return (
-                <div
-                  key={coin}
-                  className="flex items-center justify-between py-2 border-b last:border-b-0"
-                >
-                  {/* 币种符号 */}
-                  <div className="flex items-center gap-2">
-                    <div className="font-medium text-sm">{coin}</div>
+            return (
+              <div
+                key={coin}
+                className="flex items-center justify-between px-3 py-2 rounded-md hover:bg-sidebar-accent/50 transition-colors"
+              >
+                {/* 币种符号 */}
+                <div className="font-medium text-sm">{coin}</div>
+
+                {/* 价格和涨跌幅 */}
+                <div className="flex flex-col items-end">
+                  {/* 当前价格 */}
+                  <div className="text-sm font-medium tabular-nums">
+                    ${formatPrice(data.price)}
                   </div>
 
-                  {/* 价格和涨跌幅 */}
-                  <div className="flex flex-col items-end gap-0.5">
-                    {/* 当前价格 */}
-                    <div className="font-mono text-sm font-medium">
-                      ${formatPrice(data.price)}
-                    </div>
-
-                    {/* 24小时涨跌幅 - 中文颜色约定：红涨绿跌 */}
-                    <div
-                      className={cn(
-                        'flex items-center gap-1 text-xs font-medium',
-                        isPositive
-                          ? 'text-red-600 dark:text-red-500' // 红色表示上涨
-                          : 'text-green-600 dark:text-green-500' // 绿色表示下跌
-                      )}
-                    >
-                      {isPositive ? (
-                        <TrendingUp className="size-3" />
-                      ) : (
-                        <TrendingDown className="size-3" />
-                      )}
-                      <span>{formatChange(data.change_24h)}</span>
-                    </div>
+                  {/* 24小时涨跌幅 - 中文颜色约定：红涨绿跌 */}
+                  <div
+                    className={cn(
+                      'flex items-center gap-1 text-xs',
+                      isPositive
+                        ? 'text-profit' // 红色表示上涨
+                        : 'text-loss' // 绿色表示下跌
+                    )}
+                  >
+                    {isPositive ? (
+                      <TrendingUp className="size-3" />
+                    ) : (
+                      <TrendingDown className="size-3" />
+                    )}
+                    <span>{formatChange(data.change_24h)}</span>
                   </div>
                 </div>
-              )
-            })}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 })

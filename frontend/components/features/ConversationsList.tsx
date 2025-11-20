@@ -27,59 +27,44 @@ export const ConversationsList = React.memo(function ConversationsList() {
   // 空状态
   if (!isLoading && conversations.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>AI 对话</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-muted-foreground text-sm">暂无对话记录</p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="rounded-md border bg-card p-8 text-center text-sm text-muted-foreground shadow-sm">
+        暂无对话记录
+      </div>
     )
   }
 
   // 加载状态
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>AI 对话</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-12">
-            <p className="text-muted-foreground text-sm">加载中...</p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="rounded-md border bg-card p-8 text-center text-sm text-muted-foreground shadow-sm">
+        加载中...
+      </div>
     )
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>AI 对话</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="max-h-[600px] space-y-4 overflow-y-auto">
-          {conversations.map((conversation: Conversation) => (
-            <div
-              key={conversation.id}
-              className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900"
-            >
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-muted-foreground text-xs">
-                  {formatTimestamp(conversation.timestamp, 'datetime')}
-                </span>
-              </div>
-              <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-                {conversation.ai_response}
-              </div>
+    <div className="rounded-md border bg-card shadow-sm">
+      <div className="p-4 border-b">
+        <h3 className="font-semibold leading-none tracking-tight">AI 决策日志</h3>
+      </div>
+      <div className="max-h-[600px] overflow-y-auto p-4 space-y-4">
+        {conversations.map((conversation: Conversation) => (
+          <div
+            key={conversation.id}
+            className="group relative rounded-md border bg-muted/30 p-4 transition-colors hover:bg-muted/50"
+          >
+            <div className="mb-2 flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-primary/50" />
+              <span className="text-xs font-medium text-muted-foreground font-mono">
+                {formatTimestamp(conversation.timestamp, 'datetime')}
+              </span>
             </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+            <div className="text-sm leading-relaxed whitespace-pre-wrap break-words text-foreground/90">
+              {conversation.ai_response}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 })

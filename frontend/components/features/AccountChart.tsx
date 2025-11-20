@@ -137,8 +137,8 @@ export const AccountChart = React.memo(function AccountChart({ data, type, isLoa
     const animationProps = {
       animationDuration: 480,
       animationDurationUpdate: 320,
-      animationEasing: 'cubicOut',
-      animationEasingUpdate: 'cubicOut',
+      animationEasing: 'cubicOut' as const,
+      animationEasingUpdate: 'cubicOut' as const,
     }
 
     // 单模型视图
@@ -488,53 +488,38 @@ export const AccountChart = React.memo(function AccountChart({ data, type, isLoa
   // 加载状态
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>账户价值</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[400px] flex items-center justify-center">
-            <div className="text-sm text-muted-foreground">加载中...</div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="h-[400px] flex items-center justify-center rounded-md border bg-card shadow-sm">
+        <div className="text-sm text-muted-foreground">加载中...</div>
+      </div>
     )
   }
 
   // 无数据状态
   if (!chartOption) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>账户价值</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[400px] flex items-center justify-center">
-            <div className="text-sm text-muted-foreground">
-              {type === 'single' ? '暂无账户数据' : '暂无模型数据'}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="h-[400px] flex items-center justify-center rounded-md border bg-card shadow-sm">
+        <div className="text-sm text-muted-foreground">
+          {type === 'single' ? '暂无账户数据' : '暂无模型数据'}
+        </div>
+      </div>
     )
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <CardTitle>账户价值</CardTitle>
-        {latestSnapshot && (
-          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">
-              最新：{latestSnapshot.value}
-            </span>
-            <span className="text-xs text-muted-foreground">
+    <div className="rounded-md border bg-card shadow-sm">
+      <div className="flex flex-col gap-1 p-6 pb-0 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <h3 className="font-semibold leading-none tracking-tight">账户价值</h3>
+          {latestSnapshot && (
+            <p className="text-sm text-muted-foreground">
+              最新：<span className="font-medium text-foreground">{latestSnapshot.value}</span>
+              <span className="mx-2 text-muted-foreground/50">•</span>
               更新时间：{latestSnapshot.timestamp}
-            </span>
-          </div>
-        )}
-      </CardHeader>
-      <CardContent>
+            </p>
+          )}
+        </div>
+      </div>
+      <div className="p-6 pt-4">
         <Suspense fallback={
           <div className="h-[400px] flex items-center justify-center">
             <div className="text-sm text-muted-foreground">加载图表中...</div>
@@ -554,7 +539,7 @@ export const AccountChart = React.memo(function AccountChart({ data, type, isLoa
             }}
           />
         </Suspense>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 })
