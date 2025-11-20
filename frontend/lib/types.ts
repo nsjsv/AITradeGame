@@ -111,6 +111,31 @@ export interface MarketPrices {
   [coin: string]: MarketPrice
 }
 
+export interface MarketHistoryRecord {
+  timestamp: string
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+  source?: string
+}
+
+export interface MarketHistoryResponse {
+  coin: string
+  resolution: number
+  limit: number
+  records: MarketHistoryRecord[]
+}
+
+export interface MarketHistoryQuery {
+  coin: string
+  resolution?: number
+  limit?: number
+  start?: string
+  end?: string
+}
+
 // ============================================================================
 // API 提供方相关类型
 // ============================================================================

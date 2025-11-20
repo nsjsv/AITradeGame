@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Header,
   Sidebar,
@@ -97,7 +98,12 @@ export default function HomePage() {
                 <StatsGrid portfolio={portfolio} isLoading={isLoading} />
 
                 {/* 账户价值图表 */}
-                <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.1 }}
+                  className="rounded-lg border bg-card text-card-foreground shadow-sm"
+                >
                   <div className="p-6 pb-0">
                     <h3 className="font-semibold leading-none tracking-tight">资产趋势</h3>
                     <p className="text-sm text-muted-foreground mt-1">过去 24 小时净值变化</p>
@@ -109,66 +115,80 @@ export default function HomePage() {
                       isLoading={isLoading}
                     />
                   </div>
-                </div>
+                </motion.div>
 
-                {/* 数据表格 - 仅在非聚合视图显示 */}
-                {!isAggregatedView && (
-                  <Tabs defaultValue="positions" className="w-full space-y-4">
-                    <TabsList className="bg-muted/50 p-1">
-                      <TabsTrigger value="positions" className="text-xs">持仓管理</TabsTrigger>
-                      <TabsTrigger value="trades" className="text-xs">交易历史</TabsTrigger>
-                      <TabsTrigger value="conversations" className="text-xs">AI 决策日志</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="positions" className="space-y-4">
-                      <PositionsTable
-                        portfolio={portfolio}
-                        isLoading={isLoading}
-                      />
-                    </TabsContent>
-                    <TabsContent value="trades" className="space-y-4">
-                      <TradesTable />
-                    </TabsContent>
-                    <TabsContent value="conversations" className="space-y-4">
-                      <ConversationsList />
-                    </TabsContent>
-                  </Tabs>
-                )}
-
-                {/* 聚合视图提示 */}
-                {isAggregatedView && (
-                  <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center animate-in fade-in-50">
-                    <div className="rounded-full bg-muted/50 p-3">
-                       <Loader2 className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                    <h3 className="mt-4 text-lg font-semibold">聚合视图模式</h3>
-                    <p className="mt-2 text-sm text-muted-foreground max-w-sm">
-                      当前显示所有模型的汇总数据。如需查看特定模型的详细持仓和交易记录，请在左侧侧边栏选择对应模型。
-                    </p>
-                  </div>
-                )}
+                {/* 视图切换区域 */}
+                <AnimatePresence mode="wait">
+                  {!isAggregatedView ? (
+                    <motion.div
+                      key="detail-view"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <Tabs defaultValue="positions" className="w-full space-y-4">
+                        <TabsList className="bg-muted/50 p-1">
+                          <TabsTrigger value="positions" className="text-xs">持仓管理</TabsTrigger>
+                          <TabsTrigger value="trades" className="text-xs">交易历史</TabsTrigger>
+                          <TabsTrigger value="conversations" className="text-xs">AI 决策日志</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="positions" className="space-y-4">
+                          <PositionsTable
+                            portfolio={portfolio}
+                            isLoading={isLoading}
+                          />
+                        </TabsContent>
+                        <TabsContent value="trades" className="space-y-4">
+                          <TradesTable />
+                        </TabsContent>
+                        <TabsContent value="conversations" className="space-y-4">
+                          <ConversationsList />
+                        </TabsContent>
+                      </Tabs>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="aggregated-view"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 1.05 }}
+                      transition={{ duration: 0.3 }}
+                      className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center"
+                    >
+                      <div className="rounded-full bg-muted/50 p-3">
+                         <Loader2 className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <h3 className="mt-4 text-lg font-semibold">聚合视图模式</h3>
+                      <p className="mt-2 text-sm text-muted-foreground max-w-sm">
+                        当前显示所有模型的汇总数据。如需查看特定模型的详细持仓和交易记录，请在左侧侧边栏选择对应模型。
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </main>
         </div>
         
         {/* 模态对话框 */}
-        <AddModelModal 
-          open={activeModal === 'addModel'} 
-          onOpenChange={handleModalOpenChange('addModel')} 
+        <AddModelModal
+          open={activeModal === 'addModel'}
+          onOpenChange={handleModalOpenChange('addModel')}
         />
         
-        <ApiProviderModal 
-          open={activeModal === 'apiProvider'} 
-          onOpenChange={handleModalOpenChange('apiProvider')} 
+        <ApiProviderModal
+          open={activeModal === 'apiProvider'}
+          onOpenChange={handleModalOpenChange('apiProvider')}
         />
         
-        <SettingsModal 
-          open={activeModal === 'settings'} 
-          onOpenChange={handleModalOpenChange('settings')} 
+        <SettingsModal
+          open={activeModal === 'settings'}
+          onOpenChange={handleModalOpenChange('settings')}
         />
         
-        <UpdateModal 
-          open={activeModal === 'update'} 
+        <UpdateModal
+          open={activeModal === 'update'}
           onOpenChange={handleModalOpenChange('update')}
           updateInfo={null} // TODO: 从 useUpdate hook 获取
         />

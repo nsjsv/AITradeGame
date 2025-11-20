@@ -11,6 +11,7 @@
 
 import React, { useMemo } from 'react'
 import { Wallet, DollarSign, TrendingUp, TrendingDown } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/Card'
 import { formatPrice, getPnlColorClass } from '@/lib/utils'
 import type { Portfolio } from '@/lib/types'
@@ -27,31 +28,38 @@ interface StatCardProps {
   icon: React.ReactNode
   colorClass?: string
   description?: string
+  index?: number
 }
 
 /**
  * 单个统计卡片组件
  */
-const StatCard = React.memo(function StatCard({ title, value, icon, colorClass, description }: StatCardProps) {
+const StatCard = React.memo(function StatCard({ title, value, icon, colorClass, description, index = 0 }: StatCardProps) {
   return (
-    <Card className="overflow-hidden border-none shadow-sm hover:shadow-md transition-all duration-200">
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <div className={cn('text-2xl font-semibold tracking-tight', colorClass)}>
-              {value}
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+    >
+      <Card className="overflow-hidden border-none shadow-sm hover:shadow-md transition-all duration-200">
+        <CardContent className="p-6">
+          <div className="flex items-start justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">{title}</p>
+              <div className={cn('text-2xl font-semibold tracking-tight', colorClass)}>
+                {value}
+              </div>
+              {description && (
+                <p className="text-xs text-muted-foreground">{description}</p>
+              )}
             </div>
-            {description && (
-              <p className="text-xs text-muted-foreground">{description}</p>
-            )}
+            <div className="rounded-md bg-muted/50 p-2 text-muted-foreground">
+              {icon}
+            </div>
           </div>
-          <div className="rounded-md bg-muted/50 p-2 text-muted-foreground">
-            {icon}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </motion.div>
   )
 })
 
@@ -80,21 +88,25 @@ export const StatsGrid = React.memo(function StatsGrid({ portfolio, isLoading }:
     return (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
+          index={0}
           title="账户总值"
           value="$0.00"
           icon={<Wallet className="size-6 text-muted-foreground" />}
         />
         <StatCard
+          index={1}
           title="可用现金"
           value="$0.00"
           icon={<DollarSign className="size-6 text-muted-foreground" />}
         />
         <StatCard
+          index={2}
           title="已实现盈亏"
           value="$0.00"
           icon={<TrendingUp className="size-6 text-muted-foreground" />}
         />
         <StatCard
+          index={3}
           title="未实现盈亏"
           value="$0.00"
           icon={<TrendingDown className="size-6 text-muted-foreground" />}
@@ -111,6 +123,7 @@ export const StatsGrid = React.memo(function StatsGrid({ portfolio, isLoading }:
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {/* 账户总值 */}
       <StatCard
+        index={0}
         title="账户总值"
         value={formatPrice(portfolio.total_value)}
         icon={<Wallet className="size-6 text-primary" />}
@@ -119,6 +132,7 @@ export const StatsGrid = React.memo(function StatsGrid({ portfolio, isLoading }:
 
       {/* 可用现金 */}
       <StatCard
+        index={1}
         title="可用现金"
         value={formatPrice(portfolio.cash)}
         icon={<DollarSign className="size-6 text-blue-600 dark:text-blue-500" />}
@@ -127,6 +141,7 @@ export const StatsGrid = React.memo(function StatsGrid({ portfolio, isLoading }:
 
       {/* 已实现盈亏 */}
       <StatCard
+        index={2}
         title="已实现盈亏"
         value={formatPrice(portfolio.realized_pnl)}
         icon={
@@ -143,6 +158,7 @@ export const StatsGrid = React.memo(function StatsGrid({ portfolio, isLoading }:
 
       {/* 未实现盈亏 */}
       <StatCard
+        index={3}
         title="未实现盈亏"
         value={formatPrice(portfolio.unrealized_pnl)}
         icon={

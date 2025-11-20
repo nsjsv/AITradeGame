@@ -17,11 +17,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogClose,
 } from '@/components/ui/Dialog'
+import { X } from 'lucide-react'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { useSettings } from '@/hooks/useSettings'
 import type { SystemSettings } from '@/lib/types'
+import { Clock, Percent, Activity, RefreshCw, Settings2 } from 'lucide-react'
 
 interface SettingsModalProps {
   open: boolean
@@ -146,116 +149,166 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>系统设置</DialogTitle>
-          <DialogDescription>
-            配置交易系统的全局参数
-          </DialogDescription>
+      <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden bg-background/95 backdrop-blur-sm" showCloseButton={false}>
+        <DialogHeader className="px-6 py-4 border-b border-border/40 bg-muted/30 flex flex-row items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-md bg-primary/10 text-primary">
+              <Settings2 className="size-4" />
+            </div>
+            <div>
+              <DialogTitle className="text-base font-semibold">系统设置</DialogTitle>
+              <DialogDescription className="text-xs mt-0.5">
+                配置交易系统的全局参数与运行频率
+              </DialogDescription>
+            </div>
+          </div>
+          <DialogClose asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full hover:bg-secondary -mr-2"
+            >
+              <X className="size-4" />
+            </Button>
+          </DialogClose>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
+        <div className="p-6 space-y-1">
           {/* 交易频率 */}
-          <div className="grid gap-2">
-            <label htmlFor="tradingFrequency" className="text-sm font-medium">
-              交易频率 (分钟)
-            </label>
-            <Input
-              id="tradingFrequency"
-              type="number"
-              placeholder="60"
-              value={tradingFrequency}
-              onChange={(e) => setTradingFrequency(e.target.value)}
-              min="1"
-              step="1"
-            />
-            <p className="text-xs text-muted-foreground">
-              AI 模型执行交易决策的时间间隔
-            </p>
+          <div className="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 rounded-lg hover:bg-secondary/50 transition-colors border border-transparent hover:border-border/50">
+            <div className="space-y-1">
+              <label htmlFor="tradingFrequency" className="text-sm font-medium flex items-center gap-2 text-foreground/90">
+                <Clock className="size-3.5 text-muted-foreground" />
+                交易频率
+              </label>
+              <p className="text-xs text-muted-foreground pl-5.5">
+                AI 模型执行交易决策的时间间隔 (分钟)
+              </p>
+            </div>
+            <div className="w-full sm:w-[140px]">
+              <Input
+                id="tradingFrequency"
+                type="number"
+                placeholder="60"
+                value={tradingFrequency}
+                onChange={(e) => setTradingFrequency(e.target.value)}
+                min="1"
+                step="1"
+                className="h-8 bg-background/50 focus:bg-background transition-all"
+              />
+            </div>
           </div>
 
           {/* 交易费率 */}
-          <div className="grid gap-2">
-            <label htmlFor="tradingFeeRate" className="text-sm font-medium">
-              交易费率
-            </label>
-            <Input
-              id="tradingFeeRate"
-              type="number"
-              placeholder="0.001"
-              value={tradingFeeRate}
-              onChange={(e) => setTradingFeeRate(e.target.value)}
-              min="0"
-              max="1"
-              step="0.0001"
-            />
-            <p className="text-xs text-muted-foreground">
-              每笔交易的手续费率 (例如: 0.001 = 0.1%)
-            </p>
+          <div className="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 rounded-lg hover:bg-secondary/50 transition-colors border border-transparent hover:border-border/50">
+            <div className="space-y-1">
+              <label htmlFor="tradingFeeRate" className="text-sm font-medium flex items-center gap-2 text-foreground/90">
+                <Percent className="size-3.5 text-muted-foreground" />
+                交易费率
+              </label>
+              <p className="text-xs text-muted-foreground pl-5.5">
+                每笔交易的手续费率 (例如: 0.001 = 0.1%)
+              </p>
+            </div>
+            <div className="w-full sm:w-[140px]">
+              <Input
+                id="tradingFeeRate"
+                type="number"
+                placeholder="0.001"
+                value={tradingFeeRate}
+                onChange={(e) => setTradingFeeRate(e.target.value)}
+                min="0"
+                max="1"
+                step="0.0001"
+                className="h-8 bg-background/50 focus:bg-background transition-all"
+              />
+            </div>
           </div>
 
           {/* 市场刷新间隔 */}
-          <div className="grid gap-2">
-            <label htmlFor="marketRefreshInterval" className="text-sm font-medium">
-              市场数据刷新间隔 (秒)
-            </label>
-            <Input
-              id="marketRefreshInterval"
-              type="number"
-              placeholder="5"
-              value={marketRefreshInterval}
-              onChange={(e) => setMarketRefreshInterval(e.target.value)}
-              min="1"
-              step="1"
-            />
-            <p className="text-xs text-muted-foreground">
-              刷新市场价格的时间间隔，单位为秒
-            </p>
+          <div className="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 rounded-lg hover:bg-secondary/50 transition-colors border border-transparent hover:border-border/50">
+            <div className="space-y-1">
+              <label htmlFor="marketRefreshInterval" className="text-sm font-medium flex items-center gap-2 text-foreground/90">
+                <Activity className="size-3.5 text-muted-foreground" />
+                市场数据刷新
+              </label>
+              <p className="text-xs text-muted-foreground pl-5.5">
+                刷新市场价格的时间间隔 (秒)
+              </p>
+            </div>
+            <div className="w-full sm:w-[140px]">
+              <Input
+                id="marketRefreshInterval"
+                type="number"
+                placeholder="5"
+                value={marketRefreshInterval}
+                onChange={(e) => setMarketRefreshInterval(e.target.value)}
+                min="1"
+                step="1"
+                className="h-8 bg-background/50 focus:bg-background transition-all"
+              />
+            </div>
           </div>
+
           {/* 投资组合刷新间隔 */}
-          <div className="grid gap-2">
-            <label htmlFor="portfolioRefreshInterval" className="text-sm font-medium">
-              投资组合刷新间隔 (秒)
-            </label>
-            <Input
-              id="portfolioRefreshInterval"
-              type="number"
-              placeholder="10"
-              value={portfolioRefreshInterval}
-              onChange={(e) => setPortfolioRefreshInterval(e.target.value)}
-              min="1"
-              step="1"
-            />
-            <p className="text-xs text-muted-foreground">
-              刷新投资组合和图表的时间间隔，单位为秒
-            </p>
+          <div className="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 rounded-lg hover:bg-secondary/50 transition-colors border border-transparent hover:border-border/50">
+            <div className="space-y-1">
+              <label htmlFor="portfolioRefreshInterval" className="text-sm font-medium flex items-center gap-2 text-foreground/90">
+                <RefreshCw className="size-3.5 text-muted-foreground" />
+                投资组合刷新
+              </label>
+              <p className="text-xs text-muted-foreground pl-5.5">
+                刷新投资组合和图表的时间间隔 (秒)
+              </p>
+            </div>
+            <div className="w-full sm:w-[140px]">
+              <Input
+                id="portfolioRefreshInterval"
+                type="number"
+                placeholder="10"
+                value={portfolioRefreshInterval}
+                onChange={(e) => setPortfolioRefreshInterval(e.target.value)}
+                min="1"
+                step="1"
+                className="h-8 bg-background/50 focus:bg-background transition-all"
+              />
+            </div>
           </div>
 
           {/* 成功提示 */}
           {successMessage && (
-            <div className="rounded-md bg-success/10 px-3 py-2 text-sm text-success">
+            <div className="mx-3 rounded-md bg-green-500/10 border border-green-500/20 px-3 py-2 text-xs text-green-600 dark:text-green-400 flex items-center gap-2">
+              <div className="size-1.5 rounded-full bg-green-500 animate-pulse" />
               {successMessage}
             </div>
           )}
 
           {/* 错误提示 */}
           {error && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="mx-3 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive flex items-center gap-2">
+              <div className="size-1.5 rounded-full bg-destructive" />
               {error}
             </div>
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="px-6 py-4 border-t border-border/40 bg-muted/10">
           <Button
-            variant="outline"
+            variant="ghost"
+            size="sm"
             onClick={handleReset}
             disabled={isSubmitting}
+            className="text-muted-foreground hover:text-foreground"
           >
-            重置
+            重置默认
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? '保存中...' : '保存设置'}
+          <Button
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            size="sm"
+            className="min-w-[80px]"
+          >
+            {isSubmitting ? '保存中...' : '保存更改'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -12,6 +12,8 @@ import type {
   Conversation,
   MarketPrices,
   MarketPrice,
+  MarketHistoryRecord,
+  MarketHistoryResponse,
   ApiProvider,
   SystemSettings,
   FrontendConfig,
@@ -407,6 +409,63 @@ export function validateMarketPrices(data: unknown): MarketPrices {
   }
   
   return validated
+}
+
+/**
+ * Validate single market history record
+ */
+export function validateMarketHistoryRecord(data: unknown): MarketHistoryRecord {
+  if (!isObject(data)) {
+    throw new ValidationError('MarketHistoryRecord must be an object', undefined, 'object', typeof data)
+  }
+
+  const record: MarketHistoryRecord = {
+    timestamp: validateRequired(data, 'timestamp', isString, 'string'),
+    open: validateRequired(data, 'open', isNumber, 'number'),
+    high: validateRequired(data, 'high', isNumber, 'number'),
+    low: validateRequired(data, 'low', isNumber, 'number'),
+    close: validateRequired(data, 'close', isNumber, 'number'),
+    volume: validateOptional(data, 'volume', isNumber, 0),
+  }
+
+  if ('source' in data && isString(data.source)) {
+    record.source = data.source
+  }
+
+  return record
+}
+
+/**
+ * Validate market history response
+ */
+export function validateMarketHistoryResponse(data: unknown): MarketHistoryResponse {
+  if (!isObject(data)) {
+    throw new ValidationError('MarketHistoryResponse must be an object', undefined, 'object', typeof data)
+  }
+
+  const rawRecords = validateRequired(data, 'records', isArray, 'array')
+  const records = rawRecords.map((item, index) => {
+    try {
+      return validateMarketHistoryRecord(item)
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        throw new ValidationError(
+          `Invalid market history record at index ${index}: ${error.message}`,
+          `[${index}].${error.field}`,
+          error.expected,
+          error.received
+        )
+      }
+      throw error
+    }
+  })
+
+  return {
+    coin: validateRequired(data, 'coin', isString, 'string'),
+    resolution: validateRequired(data, 'resolution', isNumber, 'number'),
+    limit: validateRequired(data, 'limit', isNumber, 'number'),
+    records,
+  }
 }
 
 /**

@@ -12,6 +12,7 @@
 
 import React, { useState, useCallback } from 'react'
 import { Trash2, TrendingUp } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { useAppStore } from '@/store/useAppStore'
@@ -101,41 +102,51 @@ export const ModelList = React.memo(function ModelList() {
           </button>
 
           {/* 模型列表 */}
-          {models.map((model) => (
-            <div
-              key={model.id}
-              onClick={() => handleSelectModel(model.id)}
-              className={cn(
-                'group relative flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors cursor-pointer',
-                'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                selectedModelId === model.id
-                  ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
-                  : 'text-sidebar-foreground'
-              )}
-            >
-              <div className="flex-1 min-w-0">
-                <div className="truncate">{model.name}</div>
-                <div className="text-xs text-muted-foreground truncate">
-                  {model.model_name}
-                </div>
-              </div>
-
-              {/* 删除按钮 */}
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={(e) => handleDeleteModel(model.id, e)}
-                disabled={deletingId === model.id}
-                className={cn(
-                  'h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity',
-                  deletingId === model.id && 'opacity-50'
-                )}
-                title="删除模型"
+          <AnimatePresence initial={false}>
+            {models.map((model) => (
+              <motion.div
+                key={model.id}
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+                style={{ overflow: 'hidden' }}
               >
-                <Trash2 className="size-3" />
-              </Button>
-            </div>
-          ))}
+                <div
+                  onClick={() => handleSelectModel(model.id)}
+                  className={cn(
+                    'group relative flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors cursor-pointer',
+                    'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                    selectedModelId === model.id
+                      ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+                      : 'text-sidebar-foreground'
+                  )}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="truncate">{model.name}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {model.model_name}
+                    </div>
+                  </div>
+
+                  {/* 删除按钮 */}
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={(e) => handleDeleteModel(model.id, e)}
+                    disabled={deletingId === model.id}
+                    className={cn(
+                      'h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity',
+                      deletingId === model.id && 'opacity-50'
+                    )}
+                    title="删除模型"
+                  >
+                    <Trash2 className="size-3" />
+                  </Button>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </>
       )}
     </div>

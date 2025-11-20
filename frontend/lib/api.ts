@@ -16,6 +16,8 @@ import type {
   HealthResponse,
   LeaderboardEntry,
   MarketPrices,
+  MarketHistoryResponse,
+  MarketHistoryQuery,
   ModelChartData,
   PortfolioResponse,
   SystemSettings,
@@ -29,6 +31,7 @@ import {
   validateApiProviders,
   validateApiResponse,
   validateMarketPrices,
+  validateMarketHistoryResponse,
   validatePortfolioResponse,
   validateSystemSettings,
   validateTrades,
@@ -187,6 +190,33 @@ class ApiClient {
         fallbackMessage: '获取市场价格失败',
         validator: validateMarketPrices,
         context: 'getMarketPrices',
+      }
+    )
+  }
+
+  async getMarketHistory(params: MarketHistoryQuery): Promise<ApiResponse<MarketHistoryResponse>> {
+    const { coin, ...rest } = params
+    const query: Record<string, string | number> = { coin: coin.toUpperCase() }
+
+    if (rest.resolution !== undefined) {
+      query.resolution = rest.resolution
+    }
+    if (rest.limit !== undefined) {
+      query.limit = rest.limit
+    }
+    if (rest.start) {
+      query.start = rest.start
+    }
+    if (rest.end) {
+      query.end = rest.end
+    }
+
+    return this.handleRequest(
+      () => apiGet('/api/market/history', query, getMarketApiBaseUrl()),
+      {
+        fallbackMessage: '获取行情历史数据失败',
+        validator: validateMarketHistoryResponse,
+        context: `getMarketHistory(${coin})`,
       }
     )
   }

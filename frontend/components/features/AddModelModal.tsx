@@ -10,7 +10,7 @@
 
 'use client'
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogClose,
 } from '@/components/ui/Dialog'
+import { X } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -31,6 +33,7 @@ import { Button } from '@/components/ui/Button'
 import { useProviders } from '@/hooks/useProviders'
 import { useModels } from '@/hooks/useModels'
 import type { CreateModelRequest } from '@/lib/types'
+import { Bot, Database, DollarSign, Cpu, Sparkles } from 'lucide-react'
 
 interface AddModelModalProps {
   open: boolean
@@ -144,22 +147,39 @@ export function AddModelModal({ open, onOpenChange }: AddModelModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>添加交易模型</DialogTitle>
-          <DialogDescription>
-            创建一个新的 AI 交易模型，选择提供方和模型配置
-          </DialogDescription>
+      <DialogContent className="sm:max-w-[460px] p-0 gap-0 overflow-hidden bg-background/95 backdrop-blur-sm" showCloseButton={false}>
+        <DialogHeader className="px-6 py-4 border-b border-border/40 bg-muted/30 flex flex-row items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-md bg-primary/10 text-primary">
+              <Bot className="size-4" />
+            </div>
+            <div>
+              <DialogTitle className="text-base font-semibold">添加交易模型</DialogTitle>
+              <DialogDescription className="text-xs mt-0.5">
+                配置新的 AI 交易策略实例
+              </DialogDescription>
+            </div>
+          </div>
+          <DialogClose asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full hover:bg-secondary -mr-2"
+            >
+              <X className="size-4" />
+            </Button>
+          </DialogClose>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
+        <div className="p-6 space-y-4">
           {/* API 提供方选择 */}
-          <div className="grid gap-2">
-            <label htmlFor="provider" className="text-sm font-medium">
+          <div className="space-y-2">
+            <label htmlFor="provider" className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <Database className="size-3.5" />
               API 提供方
             </label>
             <Select value={providerId} onValueChange={setProviderId}>
-              <SelectTrigger id="provider" className="w-full">
+              <SelectTrigger id="provider" className="w-full h-9 bg-secondary/30 focus:bg-background transition-all">
                 <SelectValue placeholder="选择 API 提供方" />
               </SelectTrigger>
               <SelectContent>
@@ -179,16 +199,17 @@ export function AddModelModal({ open, onOpenChange }: AddModelModalProps) {
           </div>
 
           {/* 模型选择 */}
-          <div className="grid gap-2">
-            <label htmlFor="model" className="text-sm font-medium">
-              模型
+          <div className="space-y-2">
+            <label htmlFor="model" className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <Cpu className="size-3.5" />
+              基础模型
             </label>
             <Select
               value={modelName}
               onValueChange={setModelName}
               disabled={!providerId || availableModels.length === 0}
             >
-              <SelectTrigger id="model" className="w-full">
+              <SelectTrigger id="model" className="w-full h-9 bg-secondary/30 focus:bg-background transition-all">
                 <SelectValue placeholder="选择模型" />
               </SelectTrigger>
               <SelectContent>
@@ -208,21 +229,24 @@ export function AddModelModal({ open, onOpenChange }: AddModelModalProps) {
           </div>
 
           {/* 显示名称 */}
-          <div className="grid gap-2">
-            <label htmlFor="displayName" className="text-sm font-medium">
+          <div className="space-y-2">
+            <label htmlFor="displayName" className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <Sparkles className="size-3.5" />
               显示名称
             </label>
             <Input
               id="displayName"
-              placeholder="例如: GPT-4 交易员"
+              placeholder="例如: GPT-4 激进策略"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
+              className="h-9 bg-secondary/30 focus:bg-background transition-all"
             />
           </div>
 
           {/* 初始资金 */}
-          <div className="grid gap-2">
-            <label htmlFor="initialCapital" className="text-sm font-medium">
+          <div className="space-y-2">
+            <label htmlFor="initialCapital" className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <DollarSign className="size-3.5" />
               初始资金 (USDT)
             </label>
             <Input
@@ -233,27 +257,36 @@ export function AddModelModal({ open, onOpenChange }: AddModelModalProps) {
               onChange={(e) => setInitialCapital(e.target.value)}
               min="0"
               step="100"
+              className="h-9 bg-secondary/30 focus:bg-background transition-all"
             />
           </div>
 
           {/* 错误提示 */}
           {error && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive flex items-center gap-2">
+              <div className="size-1.5 rounded-full bg-destructive" />
               {error}
             </div>
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="px-6 py-4 border-t border-border/40 bg-muted/10">
           <Button
-            variant="outline"
+            variant="ghost"
+            size="sm"
             onClick={() => handleOpenChange(false)}
             disabled={isSubmitting}
+            className="text-muted-foreground hover:text-foreground"
           >
             取消
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? '创建中...' : '创建模型'}
+          <Button
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            size="sm"
+            className="min-w-[80px]"
+          >
+            {isSubmitting ? '创建中...' : '确认创建'}
           </Button>
         </DialogFooter>
       </DialogContent>

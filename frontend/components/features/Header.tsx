@@ -45,9 +45,12 @@ export const Header = React.memo(function Header({
 }: HeaderProps) {
   const isRefreshing = useAppStore((state) => state.isRefreshing)
   const toggleSidebar = useAppStore((state) => state.toggleSidebar)
+  const setAggregatedView = useAppStore((state) => state.setAggregatedView)
   const backendOnline = useAppStore((state) => state.backendOnline)
   const backendError = useAppStore((state) => state.backendError)
   const backendLastChecked = useAppStore((state) => state.backendLastChecked)
+  const selectedModelId = useAppStore((state) => state.selectedModelId)
+  const models = useAppStore((state) => state.models)
   const { updateInfo } = useUpdate()
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
@@ -62,6 +65,17 @@ export const Header = React.memo(function Header({
     () => updateInfo?.update_available && !updateInfo.error,
     [updateInfo]
   )
+
+  const currentModelName = useMemo(() => {
+    if (!selectedModelId) return null
+    const model = models.find((m) => m.id === selectedModelId)
+    return model ? model.name : null
+  }, [selectedModelId, models])
+
+  const truncateName = (name: string) => {
+    if (name.length <= 15) return name
+    return `${name.slice(0, 6)}...${name.slice(-6)}`
+  }
 
   const toggleTheme = useCallback(() => {
     if (!mounted) {
@@ -94,8 +108,22 @@ export const Header = React.memo(function Header({
 
           {/* 面包屑导航风格的标题 */}
           <div className="flex items-center gap-2 text-sm">
-            <span className="font-medium text-foreground">AI Trade Game</span>
+            <button
+              onClick={() => setAggregatedView(true)}
+              className="font-medium text-foreground hover:text-primary transition-colors px-2 py-1 rounded-md hover:bg-secondary/50 border border-transparent hover:border-border/50"
+              title="返回聚合视图"
+            >
+              AI Trade Game
+            </button>
             <span className="text-muted-foreground">/</span>
+            {currentModelName && (
+              <>
+                <span className="font-medium text-foreground" title={currentModelName}>
+                  {truncateName(currentModelName)}
+                </span>
+                <span className="text-muted-foreground">/</span>
+              </>
+            )}
             <div className="flex items-center gap-2">
                <div
                 className={`size-1.5 rounded-full ${

@@ -19,12 +19,14 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogClose,
 } from '@/components/ui/Dialog'
+import { X } from 'lucide-react'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { useProviders } from '@/hooks/useProviders'
-import { Trash2Icon, RefreshCwIcon, XIcon } from 'lucide-react'
+import { Trash2Icon, RefreshCwIcon, XIcon, Server, Key, Globe, Plus, Database } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { CreateProviderRequest } from '@/lib/types'
 
@@ -166,151 +168,190 @@ export function ApiProviderModal({ open, onOpenChange }: ApiProviderModalProps) 
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[95vw] sm:max-w-[900px] max-h-[90vh] overflow-hidden p-4 sm:p-6">
-        <DialogHeader>
-          <DialogTitle>API 提供方管理</DialogTitle>
-          <DialogDescription>
-            添加和管理 LLM API 提供方配置
-          </DialogDescription>
+      <DialogContent className="max-w-[95vw] sm:max-w-[900px] max-h-[90vh] overflow-hidden p-0 gap-0 bg-background/95 backdrop-blur-sm" showCloseButton={false}>
+        <DialogHeader className="px-6 py-4 border-b border-border/40 bg-muted/30 flex flex-row items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-md bg-primary/10 text-primary">
+              <Server className="size-4" />
+            </div>
+            <div>
+              <DialogTitle className="text-base font-semibold">API 提供方管理</DialogTitle>
+              <DialogDescription className="text-xs mt-0.5">
+                配置 LLM API 连接与模型映射
+              </DialogDescription>
+            </div>
+          </div>
+          <DialogClose asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full hover:bg-secondary -mr-2"
+            >
+              <X className="size-4" />
+            </Button>
+          </DialogClose>
         </DialogHeader>
 
-        <div className="flex flex-col lg:flex-row gap-6 overflow-hidden">
-          {/* 左侧/上方：添加提供方表单 */}
-          <div className="flex-1 space-y-4 overflow-y-auto lg:pr-2">
-            <h3 className="text-sm font-semibold">添加新提供方</h3>
+        <div className="flex flex-col lg:flex-row h-[600px] lg:h-[500px] overflow-hidden">
+          {/* 左侧：添加提供方表单 */}
+          <div className="flex-1 flex flex-col overflow-hidden border-b lg:border-b-0 lg:border-r border-border/40">
+            <div className="p-4 border-b border-border/40 bg-muted/10 flex items-center gap-2">
+              <Plus className="size-4 text-muted-foreground" />
+              <h3 className="text-sm font-medium">添加新连接</h3>
+            </div>
             
-            {/* 提供方名称 */}
-            <div className="grid gap-2.5">
-              <label htmlFor="name" className="text-sm font-medium ml-2">
-                提供方名称
-              </label>
-              <div className="ml-2">
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              {/* 提供方名称 */}
+              <div className="space-y-2">
+                <label htmlFor="name" className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <Database className="size-3.5" />
+                  提供方名称
+                </label>
                 <Input
                   id="name"
-                  placeholder="例如: OpenAI"
+                  placeholder="例如: OpenAI, Anthropic"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="h-10"
+                  className="h-9 bg-secondary/30 focus:bg-background transition-all"
                 />
               </div>
-            </div>
 
-            {/* API URL */}
-            <div className="grid gap-2.5">
-              <label htmlFor="apiUrl" className="text-sm font-medium ml-2">
-                API URL
-              </label>
-              <div className="ml-2">
+              {/* API URL */}
+              <div className="space-y-2">
+                <label htmlFor="apiUrl" className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <Globe className="size-3.5" />
+                  API URL
+                </label>
                 <Input
                   id="apiUrl"
                   placeholder="https://api.openai.com"
                   value={apiUrl}
                   onChange={(e) => setApiUrl(e.target.value)}
-                  className="h-10"
+                  className="h-9 bg-secondary/30 focus:bg-background transition-all"
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  后端会自动添加 /v1（如需要）
+                <p className="text-[10px] text-muted-foreground/70 pl-1">
+                  * 后端会自动适配 /v1 路径
                 </p>
               </div>
-            </div>
 
-            {/* API 密钥 */}
-            <div className="grid gap-2.5">
-              <label htmlFor="apiKey" className="text-sm font-medium ml-2">
-                API 密钥
-              </label>
-              <div className="ml-2">
+              {/* API 密钥 */}
+              <div className="space-y-2">
+                <label htmlFor="apiKey" className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <Key className="size-3.5" />
+                  API 密钥
+                </label>
                 <Input
                   id="apiKey"
                   type="password"
                   placeholder="sk-..."
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  className="h-10"
+                  className="h-9 bg-secondary/30 focus:bg-background transition-all"
                 />
               </div>
-            </div>
 
-            {/* 获取模型按钮 */}
-            <div className="grid gap-2.5">
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-sm font-medium">
-                  可用模型
-                </label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleFetchModels}
-                  disabled={isFetching || !apiUrl || !apiKey}
-                >
-                  <RefreshCwIcon className={cn('size-4 mr-2', isFetching && 'animate-spin')} />
-                  {isFetching ? '获取中...' : '获取模型列表'}
-                </Button>
+              {/* 获取模型 */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    可用模型列表
+                  </label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleFetchModels}
+                    disabled={isFetching || !apiUrl || !apiKey}
+                    className="h-7 text-xs hover:bg-secondary"
+                  >
+                    <RefreshCwIcon className={cn('size-3 mr-1.5', isFetching && 'animate-spin')} />
+                    {isFetching ? '同步中...' : '同步模型'}
+                  </Button>
+                </div>
+                
+                {/* 模型列表显示 */}
+                <div className="min-h-[80px] p-3 rounded-lg border border-border/50 bg-secondary/20 text-sm">
+                  {modelsList.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {modelsList.map((model) => (
+                        <Badge
+                          key={model}
+                          variant="secondary"
+                          className="gap-1 pr-1 py-0.5 text-[10px] font-normal bg-background border-border/50"
+                        >
+                          {model}
+                          <button
+                            type="button"
+                            onClick={() => removeModel(model)}
+                            className="ml-1 rounded-full hover:bg-muted-foreground/20 p-0.5 transition-colors"
+                          >
+                            <XIcon className="size-2.5" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-muted-foreground/50 text-xs gap-1 py-4">
+                      <Server className="size-8 opacity-20" />
+                      <span>暂无模型数据，请先同步</span>
+                    </div>
+                  )}
+                </div>
+                
+                {fetchError && (
+                  <p className="text-xs text-destructive flex items-center gap-1.5">
+                    <span className="size-1.5 rounded-full bg-destructive" />
+                    {fetchError}
+                  </p>
+                )}
               </div>
-              
-              {/* 模型列表显示 */}
-              {modelsList.length > 0 && (
-                <div className="flex flex-wrap gap-2 p-4 rounded-md border bg-muted/50 max-h-[200px] overflow-y-auto">
-                  {modelsList.map((model) => (
-                    <Badge
-                      key={model}
-                      variant="secondary"
-                      className="gap-1 pr-1 py-1"
-                    >
-                      <span className="text-xs">{model}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeModel(model)}
-                        className="ml-1 rounded-sm hover:bg-muted-foreground/20 p-0.5"
-                      >
-                        <XIcon className="size-3" />
-                      </button>
-                    </Badge>
-                  ))}
+
+              {/* 错误提示 */}
+              {error && (
+                <div className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                  {error}
                 </div>
               )}
-              
-              {fetchError && (
-                <p className="text-sm text-destructive mt-1">{fetchError}</p>
-              )}
             </div>
 
-            {/* 错误提示 */}
-            {error && (
-              <div className="rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {error}
-              </div>
-            )}
-
-            {/* 提交按钮 */}
-            <div className="flex justify-end gap-3 pt-4">
+            <div className="p-4 border-t border-border/40 bg-muted/10 flex justify-end gap-2">
               <Button
-                variant="outline"
+                variant="ghost"
+                size="sm"
                 onClick={() => handleOpenChange(false)}
                 disabled={isSubmitting}
-                className="h-10 px-4"
               >
-                关闭
+                取消
               </Button>
-              <Button 
-                onClick={handleSubmit} 
+              <Button
+                onClick={handleSubmit}
                 disabled={isSubmitting || modelsList.length === 0}
-                className="h-10 px-4"
+                size="sm"
               >
-                {isSubmitting ? '添加中...' : '添加提供方'}
+                {isSubmitting ? '添加中...' : '确认添加'}
               </Button>
             </div>
           </div>
 
-          {/* 右侧/下方：已有提供方列表 */}
-          <div className="w-full lg:w-[380px] lg:border-l lg:pl-6 border-t lg:border-t-0 pt-6 lg:pt-0 mt-4 lg:mt-0 flex flex-col max-h-[300px] lg:max-h-none">
-            <h3 className="text-sm font-semibold mb-4">已有提供方</h3>
+          {/* 右侧：已有提供方列表 */}
+          <div className="w-full lg:w-[320px] flex flex-col bg-muted/5">
+            <div className="p-4 border-b border-border/40 bg-muted/10 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Database className="size-4 text-muted-foreground" />
+                <h3 className="text-sm font-medium">已连接服务</h3>
+              </div>
+              <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-background">
+                {providers.length}
+              </Badge>
+            </div>
             
-            <div className="flex-1 overflow-y-auto space-y-3">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {providers.length === 0 ? (
-                <div className="py-8 text-center text-sm text-muted-foreground">
-                  暂无提供方
+                <div className="h-full flex flex-col items-center justify-center text-muted-foreground/40 text-xs gap-2">
+                  <div className="p-3 rounded-full bg-secondary/50">
+                    <Server className="size-6" />
+                  </div>
+                  <p>暂无已配置的服务商</p>
                 </div>
               ) : (
                 providers.map((provider) => {
@@ -324,43 +365,42 @@ export function ApiProviderModal({ open, onOpenChange }: ApiProviderModalProps) 
                   return (
                     <div
                       key={provider.id}
-                      className="rounded-lg border p-4 space-y-2.5 hover:bg-accent/50 transition-colors"
+                      className="group relative rounded-lg border border-border/60 bg-card p-3 hover:shadow-sm hover:border-border transition-all duration-200"
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-sm truncate mb-1">{provider.name}</h4>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {provider.api_url}
-                          </p>
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="min-w-0">
+                          <h4 className="font-medium text-sm truncate text-foreground/90">{provider.name}</h4>
+                          <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
+                            <Globe className="size-2.5" />
+                            <span className="truncate max-w-[140px]">{provider.api_url}</span>
+                          </div>
                         </div>
                         <Button
                           variant="ghost"
-                          size="icon-sm"
+                          size="icon"
                           onClick={() => handleDelete(provider.id)}
-                          className="text-destructive hover:text-destructive flex-shrink-0"
+                          className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 -mr-1 -mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
                         >
-                          <Trash2Icon className="size-4" />
+                          <Trash2Icon className="size-3.5" />
                         </Button>
                       </div>
                       
-                      {providerModels.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 pt-1">
-                          {providerModels.slice(0, 3).map((model) => (
-                            <Badge
-                              key={model}
-                              variant="outline"
-                              className="text-xs py-0.5"
-                            >
-                              {model}
-                            </Badge>
+                      <div className="pt-2 border-t border-border/30 flex items-center justify-between text-[10px] text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Database className="size-2.5" />
+                          {providerModels.length} 个模型
+                        </span>
+                        <div className="flex gap-1">
+                          {providerModels.slice(0, 2).map(m => (
+                            <span key={m} className="bg-secondary px-1 rounded text-[9px] max-w-[60px] truncate">
+                              {m}
+                            </span>
                           ))}
-                          {providerModels.length > 3 && (
-                            <Badge variant="outline" className="text-xs py-0.5">
-                              +{providerModels.length - 3}
-                            </Badge>
+                          {providerModels.length > 2 && (
+                            <span className="bg-secondary px-1 rounded text-[9px]">+{providerModels.length - 2}</span>
                           )}
                         </div>
-                      )}
+                      </div>
                     </div>
                   )
                 })

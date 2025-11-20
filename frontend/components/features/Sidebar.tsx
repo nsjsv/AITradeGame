@@ -9,6 +9,7 @@
 'use client'
 
 import React, { useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 import { ModelList } from './ModelList'
@@ -29,13 +30,19 @@ export const Sidebar = React.memo(function Sidebar({ className }: SidebarProps) 
   return (
     <>
       {/* 移动端遮罩层 */}
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-gray-900/50 lg:hidden"
-          onClick={handleOverlayClick}
-          aria-hidden="true"
-        />
-      )}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-40 bg-gray-900/50 lg:hidden"
+            onClick={handleOverlayClick}
+            aria-hidden="true"
+          />
+        )}
+      </AnimatePresence>
 
       {/* 侧边栏 */}
       <aside
